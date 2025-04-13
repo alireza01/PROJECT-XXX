@@ -1,4 +1,5 @@
 import { ReactNode } from 'react';
+import type { Prisma } from '@prisma/client';
 
 export type VocabularyLevel = "beginner" | "intermediate" | "advanced"
 
@@ -8,6 +9,10 @@ export interface Book {
   author: string
   content: string
   level: VocabularyLevel
+  coverImage?: string
+  totalPages: number
+  createdAt: string
+  updatedAt: string
 }
 
 export interface User {
@@ -42,10 +47,10 @@ export interface PageControlsProps {
 export interface ReadingProgress {
   id: string;
   userId: string;
+  user: User;
   bookId: string;
-  currentPage: number;
-  totalPages: number;
-  lastReadAt: string;
+  book: Book;
+  progress: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -53,11 +58,29 @@ export interface ReadingProgress {
 export interface ReadingSession {
   id: string;
   userId: string;
+  user: User;
   bookId: string;
+  book: Book;
   startTime: string;
   endTime: string;
   pagesRead: number;
   duration: number;
   createdAt: string;
   updatedAt: string;
-} 
+}
+
+// Prisma types
+export type BookWithRelations = Book & {
+  vocabulary: any[];
+  createdBy: any;
+};
+
+export type ReadingProgressWithRelations = ReadingProgress & {
+  user: any;
+  book: any;
+};
+
+export type ReadingSessionWithRelations = ReadingSession & {
+  user: any;
+  book: any;
+}; 

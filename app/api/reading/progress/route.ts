@@ -1,14 +1,14 @@
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 import { cookies } from 'next/headers';
-import { NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
     const supabase = createRouteHandlerClient({ cookies });
     const { data: { session } } = await supabase.auth.getSession();
     
     if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return Response.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const { bookId, currentPage, totalPages, lastReadAt } = await request.json();
@@ -28,23 +28,23 @@ export async function POST(request: Request) {
 
     if (error) throw error;
 
-    return NextResponse.json(data);
+    return Response.json(data);
   } catch (error) {
     console.error('Error updating reading progress:', error);
-    return NextResponse.json(
+    return Response.json(
       { error: 'Failed to update reading progress' },
       { status: 500 }
     );
   }
 }
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   try {
     const supabase = createRouteHandlerClient({ cookies });
     const { data: { session } } = await supabase.auth.getSession();
     
     if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return Response.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const { searchParams } = new URL(request.url);
@@ -63,10 +63,10 @@ export async function GET(request: Request) {
 
     if (error) throw error;
 
-    return NextResponse.json(data);
+    return Response.json(data);
   } catch (error) {
     console.error('Error fetching reading progress:', error);
-    return NextResponse.json(
+    return Response.json(
       { error: 'Failed to fetch reading progress' },
       { status: 500 }
     );

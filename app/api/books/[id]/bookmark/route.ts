@@ -1,7 +1,7 @@
 // @/app/api/books/[id]/bookmark/route.ts
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/db";
+import { getAuthSession } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 
 // Validation schema for bookmark operations
@@ -18,17 +18,17 @@ export async function GET(
     // Validate the book ID
     const validationResult = bookmarkParamsSchema.safeParse(params);
     if (!validationResult.success) {
-      return NextResponse.json(
+      return Response.json(
         { error: "Invalid book ID format" },
         { status: 400 }
       );
     }
 
-    const session = await auth();
+    const session = await getAuthSession();
 
     // If user is not logged in, they haven't bookmarked it
     if (!session?.user) {
-      return NextResponse.json({ isBookmarked: false });
+      return Response.json({ isBookmarked: false });
     }
 
     const bookId = params.id;
@@ -45,11 +45,11 @@ export async function GET(
       select: { id: true } // Only need to know if it exists
     });
 
-    return NextResponse.json({ isBookmarked: !!bookmark });
+    return Response.json({ isBookmarked: !!bookmark });
 
   } catch (error) {
     console.error("API Error: [/api/books/[id]/bookmark GET]", error);
-    return NextResponse.json(
+    return Response.json(
       { error: "Failed to check bookmark status" },
       { status: 500 }
     );
@@ -65,16 +65,16 @@ export async function POST(
     // Validate the book ID
     const validationResult = bookmarkParamsSchema.safeParse(params);
     if (!validationResult.success) {
-      return NextResponse.json(
+      return Response.json(
         { error: "Invalid book ID format" },
         { status: 400 }
       );
     }
 
-    const session = await auth();
+    const session = await getAuthSession();
 
     if (!session?.user) {
-      return NextResponse.json(
+      return Response.json(
         { error: "Authentication required" },
         { status: 401 }
       );
@@ -90,7 +90,7 @@ export async function POST(
     });
 
     if (!book) {
-      return NextResponse.json(
+      return Response.json(
         { error: "Book not found" },
         { status: 404 }
       );
@@ -111,11 +111,11 @@ export async function POST(
       },
     });
 
-    return NextResponse.json({ success: true, isBookmarked: true });
+    return Response.json({ success: true, isBookmarked: true });
 
   } catch (error) {
     console.error("API Error: [/api/books/[id]/bookmark POST]", error);
-    return NextResponse.json(
+    return Response.json(
       { error: "Failed to create bookmark" },
       { status: 500 }
     );
@@ -131,16 +131,16 @@ export async function DELETE(
     // Validate the book ID
     const validationResult = bookmarkParamsSchema.safeParse(params);
     if (!validationResult.success) {
-      return NextResponse.json(
+      return Response.json(
         { error: "Invalid book ID format" },
         { status: 400 }
       );
     }
 
-    const session = await auth();
+    const session = await getAuthSession();
 
     if (!session?.user) {
-      return NextResponse.json(
+      return Response.json(
         { error: "Authentication required" },
         { status: 401 }
       );
@@ -157,11 +157,11 @@ export async function DELETE(
       },
     });
 
-    return NextResponse.json({ success: true, isBookmarked: false });
+    return Response.json({ success: true, isBookmarked: false });
 
   } catch (error) {
     console.error("API Error: [/api/books/[id]/bookmark DELETE]", error);
-    return NextResponse.json(
+    return Response.json(
       { error: "Failed to remove bookmark" },
       { status: 500 }
     );

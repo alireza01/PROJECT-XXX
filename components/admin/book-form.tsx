@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation"
 import Image from "next/image"; // Import Image
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
-import { z } from "zod"
+import * as z from "zod"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -20,6 +20,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Upload, X, Plus, Save, ArrowLeft, ImageIcon, Loader2 } from "lucide-react"
 import { addBook } from "@/actions/books"; // Updated path: TODO: Verify/create this action in @/actions/books.ts
 import { useToast } from "@/hooks/use-toast";
+import { prisma } from '@/lib/prisma-client';
 
 // Define ReadingLevel type locally based on schema
 type ReadingLevel = 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED';
@@ -27,11 +28,10 @@ type ReadingLevel = 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED';
 // Form schema
 const formSchema = z.object({
   title: z.string().min(1, "عنوان کتاب الزامی است"),
-  authorId: z.string().min(1, "نویسنده الزامی است"),
-  categoryId: z.string().min(1, "دسته‌بندی الزامی است"),
-  level: z.enum(["BEGINNER", "INTERMEDIATE", "ADVANCED"], {
-    required_error: "سطح کتاب الزامی است",
-  }),
+  author: z.string().min(1, "نام نویسنده الزامی است"),
+  category: z.string().min(1, "دسته‌بندی الزامی است"),
+  level: z.enum(["BEGINNER", "INTERMEDIATE", "ADVANCED"]),
+  content: z.string().min(1, "محتوا الزامی است"),
   description: z.string().min(10, "توضیحات باید حداقل 10 کاراکتر باشد").optional().or(z.literal('')),
   publishDate: z.string().optional(),
   pageCount: z.coerce.number().int().positive().optional(),
@@ -42,36 +42,47 @@ const formSchema = z.object({
   tags: z.array(z.string()).default([]),
 });
 
-interface BookFormProps {
-    authors?: Array<{ id: string; name: string }>;
-    categories?: Array<{ id: string; name: string }>;
-    // book?: Book | null; // For editing
+interface Category {
+  id: string;
+  name: string;
+  slug: string;
 }
 
-// Mock data (Replace with props or fetched data later)
-const mockCategories = [
-  { id: "fiction", name: "داستانی" },
-  { id: "self-help", name: "توسعه فردی" },
-  { id: "business", name: "کسب و کار" },
-  { id: "romance", name: "عاشقانه" },
-  { id: "biography", name: "زندگینامه" },
-];
-const mockAuthors = [
-  { id: "author1", name: "جیمز کلیر" },
-  { id: "author2", name: "هارپر لی" },
-  { id: "author3", name: "جی.کی. رولینگ" },
-  { id: "author4", name: "جورج اورول" },
-  { id: "author5", name: "آنتوان دو سنت اگزوپری" },
-];
+interface Author {
+  id: string;
+  name: string;
+  bio?: string;
+}
+
+interface BookFormProps {
+  initialData?: {
+    title: string;
+    author: string;
+    category: string;
+    content: string;
+  };
+}
+
 const levels: Array<{ id: ReadingLevel; name: string }> = [
-  { id: "BEGINNER", name: "مبتدی" }, { id: "INTERMEDIATE", name: "متوسط" }, { id: "ADVANCED", name: "پیشرفته" },
-];
-const availableTags = [
-  "مدیریت زمان", "خودسازی", "برنامه‌ریزی", "روانشناسی", "موفقیت",
-  "انگیزشی", "کارآفرینی", "مدیریت مالی", "رهبری", "ارتباطات",
+  { id: 'BEGINNER', name: 'مبتدی' },
+  { id: 'INTERMEDIATE', name: 'متوسط' },
+  { id: 'ADVANCED', name: 'پیشرفته' },
 ];
 
-export function BookForm({ authors = mockAuthors, categories = mockCategories }: BookFormProps) {
+const availableTags = [
+  'مدیریت زمان',
+  'خودسازی',
+  'برنامه‌ریزی',
+  'روانشناسی',
+  'موفقیت',
+  'انگیزشی',
+  'کارآفرینی',
+  'مدیریت مالی',
+  'رهبری',
+  'ارتباطات',
+];
+
+export function BookForm({ initialData }: BookFormProps) {
   const router = useRouter();
   const { toast } = useToast();
   const [bookCoverPreview, setBookCoverPreview] = useState<string | null>(null);
@@ -80,24 +91,66 @@ export function BookForm({ authors = mockAuthors, categories = mockCategories }:
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [newTag, setNewTag] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [authors, setAuthors] = useState<Author[]>([]);
+  const [loading, setLoading] = useState(true);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      title: "",
-      authorId: "",
-      categoryId: "",
-      level: "INTERMEDIATE",
-      description: "",
-      publishDate: "",
+      title: initialData?.title || '',
+      author: initialData?.author || '',
+      category: initialData?.category || '',
+      content: initialData?.content || '',
+      level: 'BEGINNER',
+      description: '',
+      publishDate: '',
       pageCount: undefined,
       price: undefined,
       discount: 0,
-      metaTitle: "",
-      metaDescription: "",
+      metaTitle: '',
+      metaDescription: '',
       tags: [],
     },
   });
+
+  useEffect(() => {
+    async function fetchData() {
+      try {
+        const [categoriesData, authorsData] = await Promise.all([
+          prisma.category.findMany({
+            select: {
+              id: true,
+              name: true,
+              slug: true,
+            },
+            orderBy: {
+              name: 'asc',
+            },
+          }),
+          prisma.author.findMany({
+            select: {
+              id: true,
+              name: true,
+              bio: true,
+            },
+            orderBy: {
+              name: 'asc',
+            },
+          }),
+        ]);
+
+        setCategories(categoriesData);
+        setAuthors(authorsData);
+      } catch (error) {
+        console.error('Error fetching form data:', error);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchData();
+  }, []);
 
   const handleCoverUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -167,6 +220,10 @@ export function BookForm({ authors = mockAuthors, categories = mockCategories }:
     }
   }
 
+  if (loading) {
+    return <div>Loading...</div>;
+  }
+
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)}>
@@ -188,11 +245,11 @@ export function BookForm({ authors = mockAuthors, categories = mockCategories }:
                     {/* Title & Author */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <FormField control={form.control} name="title" render={({ field }) => (<FormItem><FormLabel>عنوان کتاب</FormLabel><FormControl><Input placeholder="مثال: اتم‌های عادت" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                      <FormField control={form.control} name="authorId" render={({ field }) => (<FormItem><FormLabel>نویسنده</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="انتخاب نویسنده" /></SelectTrigger></FormControl><SelectContent>{authors.map((author) => ( <SelectItem key={author.id} value={author.id}>{author.name}</SelectItem> ))}</SelectContent></Select><FormMessage /></FormItem>)} />
+                      <FormField control={form.control} name="author" render={({ field }) => (<FormItem><FormLabel>نویسنده</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="انتخاب نویسنده" /></SelectTrigger></FormControl><SelectContent>{authors.map((author) => ( <SelectItem key={author.id} value={author.id}>{author.name}</SelectItem> ))}</SelectContent></Select><FormMessage /></FormItem>)} />
                     </div>
                     {/* Category & Level */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                       <FormField control={form.control} name="categoryId" render={({ field }) => (<FormItem><FormLabel>دسته‌بندی</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="انتخاب دسته‌بندی" /></SelectTrigger></FormControl><SelectContent>{categories.map((category) => ( <SelectItem key={category.id} value={category.id}>{category.name}</SelectItem> ))}</SelectContent></Select><FormMessage /></FormItem>)} />
+                       <FormField control={form.control} name="category" render={({ field }) => (<FormItem><FormLabel>دسته‌بندی</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="انتخاب دسته‌بندی" /></SelectTrigger></FormControl><SelectContent>{categories.map((category) => ( <SelectItem key={category.id} value={category.id}>{category.name}</SelectItem> ))}</SelectContent></Select><FormMessage /></FormItem>)} />
                        <FormField control={form.control} name="level" render={({ field }) => (<FormItem><FormLabel>سطح</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="انتخاب سطح" /></SelectTrigger></FormControl><SelectContent>{levels.map((level) => ( <SelectItem key={level.id} value={level.id}>{level.name}</SelectItem> ))}</SelectContent></Select><FormMessage /></FormItem>)} />
                     </div>
                      {/* Publish Date & Page Count */}

@@ -1,17 +1,17 @@
 "use client"
 
 import type React from "react"
-
-import { useState } from "react"
-import { useRouter } from "next/navigation"
+import { useState, useEffect } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { motion } from "framer-motion"
-import { Mail, Lock, User, Eye, EyeOff, AlertCircle } from "lucide-react"
+import { signIn } from "next-auth/react"
+import { Mail, Lock, Eye, EyeOff, AlertCircle, User } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import Card from "@/components/ui/card"
+import { CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { signIn } from "next-auth/react"
 
 export default function RegisterPage() {
   const router = useRouter()

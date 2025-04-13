@@ -7,7 +7,10 @@ export async function GET() {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user) {
-      return new NextResponse('Unauthorized', { status: 401 });
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), { 
+        status: 401,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
 
     const prompts = await prisma.translationPrompt.findMany({
@@ -16,10 +19,15 @@ export async function GET() {
       }
     });
 
-    return NextResponse.json(prompts);
+    return new Response(JSON.stringify(prompts), {
+      headers: { 'Content-Type': 'application/json' }
+    });
   } catch (error) {
     console.error('Error fetching translation prompts:', error);
-    return new NextResponse('Internal Server Error', { status: 500 });
+    return new Response(JSON.stringify({ error: 'Internal Server Error' }), { 
+      status: 500,
+      headers: { 'Content-Type': 'application/json' }
+    });
   }
 }
 
@@ -27,14 +35,20 @@ export async function POST(req: Request) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.isAdmin) {
-      return new NextResponse('Unauthorized', { status: 401 });
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), { 
+        status: 401,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
 
     const body = await req.json();
     const { name, prompt, isDefault } = body;
 
     if (!name || !prompt) {
-      return new NextResponse('Missing required fields', { status: 400 });
+      return new Response(JSON.stringify({ error: 'Missing required fields' }), { 
+        status: 400,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
 
     // If this is set as default, unset any existing default
@@ -57,10 +71,15 @@ export async function POST(req: Request) {
       }
     });
 
-    return NextResponse.json(translationPrompt);
+    return new Response(JSON.stringify(translationPrompt), {
+      headers: { 'Content-Type': 'application/json' }
+    });
   } catch (error) {
     console.error('Error creating translation prompt:', error);
-    return new NextResponse('Internal Server Error', { status: 500 });
+    return new Response(JSON.stringify({ error: 'Internal Server Error' }), { 
+      status: 500,
+      headers: { 'Content-Type': 'application/json' }
+    });
   }
 }
 
@@ -68,7 +87,10 @@ export async function PATCH(req: Request) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.isAdmin) {
-      return new NextResponse('Unauthorized', { status: 401 });
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), { 
+        status: 401,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
 
     const { searchParams } = new URL(req.url);
@@ -77,7 +99,10 @@ export async function PATCH(req: Request) {
     const { name, prompt, isDefault } = body;
 
     if (!id) {
-      return new NextResponse('Missing prompt ID', { status: 400 });
+      return new Response(JSON.stringify({ error: 'Missing prompt ID' }), { 
+        status: 400,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
 
     // If this is set as default, unset any existing default
@@ -102,10 +127,15 @@ export async function PATCH(req: Request) {
       }
     });
 
-    return NextResponse.json(translationPrompt);
+    return new Response(JSON.stringify(translationPrompt), {
+      headers: { 'Content-Type': 'application/json' }
+    });
   } catch (error) {
     console.error('Error updating translation prompt:', error);
-    return new NextResponse('Internal Server Error', { status: 500 });
+    return new Response(JSON.stringify({ error: 'Internal Server Error' }), { 
+      status: 500,
+      headers: { 'Content-Type': 'application/json' }
+    });
   }
 }
 
@@ -113,23 +143,35 @@ export async function DELETE(req: Request) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.isAdmin) {
-      return new NextResponse('Unauthorized', { status: 401 });
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), { 
+        status: 401,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
 
     const { searchParams } = new URL(req.url);
     const id = searchParams.get('id');
 
     if (!id) {
-      return new NextResponse('Missing prompt ID', { status: 400 });
+      return new Response(JSON.stringify({ error: 'Missing prompt ID' }), { 
+        status: 400,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
 
     await prisma.translationPrompt.delete({
       where: { id }
     });
 
-    return new NextResponse(null, { status: 204 });
+    return new Response(null, { 
+      status: 204,
+      headers: { 'Content-Type': 'application/json' }
+    });
   } catch (error) {
     console.error('Error deleting translation prompt:', error);
-    return new NextResponse('Internal Server Error', { status: 500 });
+    return new Response(JSON.stringify({ error: 'Internal Server Error' }), { 
+      status: 500,
+      headers: { 'Content-Type': 'application/json' }
+    });
   }
 } 

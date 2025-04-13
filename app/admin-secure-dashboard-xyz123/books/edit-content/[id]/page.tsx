@@ -23,7 +23,8 @@ import {
   EyeOff,
   Eye,
   Download,
-  ArrowDownUp
+  ArrowDownUp,
+  SearchIcon
 } from "lucide-react"
 import {
   Dialog,
@@ -721,3 +722,11 @@ export default function BooksManagement() {
               بله، حذف شود
             </Button>
             <DialogClose asChild>
+              <Button variant="outline">انصراف</Button>
+            </DialogClose>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  )
+}

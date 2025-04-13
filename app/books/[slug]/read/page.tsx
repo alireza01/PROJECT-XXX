@@ -27,12 +27,12 @@ export default function ReadBookPage({ params }: PageProps) {
   `
 
   const nextPage = () => {
-    setCurrentPage((prev) => prev + 1)
+    setCurrentPage((prev: number) => prev + 1)
   }
 
   const prevPage = () => {
     if (currentPage > 1) {
-      setCurrentPage((prev) => prev - 1)
+      setCurrentPage((prev: number) => prev - 1)
     }
   }
 
@@ -41,7 +41,7 @@ export default function ReadBookPage({ params }: PageProps) {
   }
 
   const toggleBookmark = () => {
-    setBookmarked((prev) => !prev)
+    setBookmarked((prev: boolean) => !prev)
   }
 
   return (

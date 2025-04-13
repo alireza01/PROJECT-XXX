@@ -7,7 +7,7 @@ export async function GET() {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user) {
-      return new NextResponse('Unauthorized', { status: 401 });
+      return Response.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const apiKeys = await prisma.geminiApiKey.findMany({
@@ -30,10 +30,10 @@ export async function GET() {
       }
     });
 
-    return NextResponse.json(apiKeys);
+    return Response.json(apiKeys);
   } catch (error) {
     console.error('Error fetching API keys:', error);
-    return new NextResponse('Internal Server Error', { status: 500 });
+    return Response.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }
 
@@ -41,14 +41,14 @@ export async function POST(req: Request) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user) {
-      return new NextResponse('Unauthorized', { status: 401 });
+      return Response.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const body = await req.json();
     const { key, name, isDefault } = body;
 
     if (!key || !name) {
-      return new NextResponse('Missing required fields', { status: 400 });
+      return Response.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
     // If this is set as default, unset any existing default
@@ -73,10 +73,10 @@ export async function POST(req: Request) {
       }
     });
 
-    return NextResponse.json(apiKey);
+    return Response.json(apiKey);
   } catch (error) {
     console.error('Error creating API key:', error);
-    return new NextResponse('Internal Server Error', { status: 500 });
+    return Response.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }
 
@@ -84,14 +84,14 @@ export async function DELETE(req: Request) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user) {
-      return new NextResponse('Unauthorized', { status: 401 });
+      return Response.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const { searchParams } = new URL(req.url);
     const id = searchParams.get('id');
 
     if (!id) {
-      return new NextResponse('Missing API key ID', { status: 400 });
+      return Response.json({ error: 'Missing API key ID' }, { status: 400 });
     }
 
     await prisma.geminiApiKey.delete({
@@ -101,9 +101,9 @@ export async function DELETE(req: Request) {
       }
     });
 
-    return new NextResponse(null, { status: 204 });
+    return new Response(null, { status: 204 });
   } catch (error) {
     console.error('Error deleting API key:', error);
-    return new NextResponse('Internal Server Error', { status: 500 });
+    return Response.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 } 

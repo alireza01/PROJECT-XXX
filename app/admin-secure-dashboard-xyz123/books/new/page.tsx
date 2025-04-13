@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import Card, { CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 
 export default function NewBookPage() {
@@ -25,7 +25,7 @@ export default function NewBookPage() {
       if (result.success) {
         router.push("/admin-secure-dashboard-xyz123/books")
       } else {
-        setError(result.error)
+        setError(result.error || "خطا در ارسال فرم")
       }
     } catch (err) {
       setError("خطا در ارسال فرم")
@@ -39,7 +39,7 @@ export default function NewBookPage() {
       <Card>
         <CardHeader>
           <CardTitle>افزودن کتاب جدید</CardTitle>
-          <CardDescription>لطفا اطلاعات کتاب را وارد کنید</CardDescription>
+          <div className="text-sm text-muted-foreground">لطفا اطلاعات کتاب را وارد کنید</div>
         </CardHeader>
         <CardContent>
           <form action={handleSubmit} className="space-y-6">

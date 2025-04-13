@@ -6,7 +6,8 @@ import { BookManagement } from '@/components/admin/book-management';
 import { VocabularyManagement } from '@/components/admin/vocabulary-management';
 import { UserManagement } from '@/components/admin/user-management';
 import { Settings } from '@/components/admin/settings';
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import Card from "@/components/ui/card"
+import { CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Book, FileText, Users } from "lucide-react"
 import { prisma } from "@/lib/prisma"
 

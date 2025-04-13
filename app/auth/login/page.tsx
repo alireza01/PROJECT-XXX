@@ -10,7 +10,8 @@ import { signIn } from "next-auth/react" // Import signIn from next-auth/react
 import { Mail, Lock, Eye, EyeOff, AlertCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import Card from "@/components/ui/card"
+import { CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 // Removed: import { useSupabaseAuth } from "@/hooks/use-supabase-auth"
 

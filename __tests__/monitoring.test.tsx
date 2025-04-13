@@ -5,6 +5,20 @@ import { render, screen } from '@testing-library/react';
 import { Monitoring } from '@/components/Monitoring';
 import React from 'react';
 
+// Mock Sentry
+jest.mock('@sentry/nextjs', () => ({
+  metrics: {
+    increment: jest.fn(),
+  },
+  addBreadcrumb: jest.fn(),
+  captureException: jest.fn(),
+  init: jest.fn(),
+  Integrations: {
+    BrowserTracing: jest.fn(),
+    Http: jest.fn(),
+  },
+}));
+
 describe('Monitoring Functions', () => {
   const originalEnv = process.env.NODE_ENV;
 

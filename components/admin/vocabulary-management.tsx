@@ -6,35 +6,51 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/components/ui/use-toast';
-import { VocabularyLevel } from '@/types';
+import * as z from "zod";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 
-interface VocabularyFormData {
-  word: string;
-  level: 'beginner' | 'intermediate' | 'advanced';
-  translation: string;
-  explanation: string;
-}
+const vocabularySchema = z.object({
+  word: z.string().min(1, "کلمه الزامی است"),
+  level: z.enum(["beginner", "intermediate", "advanced"], {
+    required_error: "سطح کلمه الزامی است",
+  }),
+  translation: z.string().min(1, "ترجمه کلمه الزامی است"),
+  explanation: z.string().min(1, "توضیحات کلمه الزامی است"),
+});
+
+type VocabularyFormData = z.infer<typeof vocabularySchema>;
 
 export function VocabularyManagement() {
-  const [formData, setFormData] = useState<VocabularyFormData>({
-    word: '',
-    level: 'beginner',
-    translation: '',
-    explanation: '',
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+    reset,
+    setValue,
+    watch
+  } = useForm<VocabularyFormData>({
+    resolver: zodResolver(vocabularySchema),
+    defaultValues: {
+      word: '',
+      level: 'beginner',
+      translation: '',
+      explanation: ''
+    }
   });
+
   const [isLoading, setIsLoading] = useState(false);
   const supabase = createClientComponentClient();
   const { toast } = useToast();
+  const currentLevel = watch('level');
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmitForm = handleSubmit(async (data) => {
     setIsLoading(true);
-
     try {
       const { error } = await supabase
         .from('vocabulary')
         .insert({
-          ...formData,
+          ...data,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         });
@@ -43,54 +59,44 @@ export function VocabularyManagement() {
 
       toast({
         title: 'Success',
-        description: 'Vocabulary item added successfully',
+        description: 'Vocabulary added successfully',
       });
 
-      setFormData({
-        word: '',
-        level: 'beginner',
-        translation: '',
-        explanation: '',
-      });
+      reset();
     } catch (error) {
       console.error('Error adding vocabulary:', error);
       toast({
         title: 'Error',
-        description: 'Failed to add vocabulary item',
+        description: 'Failed to add vocabulary',
         variant: 'destructive',
       });
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
-  };
+  });
 
   const handleLevelChange = (value: string) => {
-    setFormData(prev => ({ ...prev, level: value as VocabularyFormData['level'] }));
+    setValue('level', value as VocabularyFormData['level']);
   };
 
   return (
     <div className="space-y-6">
       <h2 className="text-2xl font-bold">Add New Vocabulary</h2>
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={handleSubmitForm} className="space-y-4">
         <div className="space-y-2">
           <Label htmlFor="word">Word</Label>
           <Input
             id="word"
-            name="word"
-            value={formData.word}
-            onChange={handleChange}
-            required
+            {...register('word')}
           />
+          {errors.word && (
+            <p className="text-sm text-red-500">{errors.word.message}</p>
+          )}
         </div>
 
         <div className="space-y-2">
           <Label htmlFor="level">Level</Label>
-          <Select value={formData.level} onValueChange={handleLevelChange}>
+          <Select value={currentLevel} onValueChange={handleLevelChange}>
             <SelectTrigger>
               <SelectValue placeholder="Select level" />
             </SelectTrigger>
@@ -100,28 +106,31 @@ export function VocabularyManagement() {
               <SelectItem value="advanced">Advanced</SelectItem>
             </SelectContent>
           </Select>
+          {errors.level && (
+            <p className="text-sm text-red-500">{errors.level.message}</p>
+          )}
         </div>
 
         <div className="space-y-2">
           <Label htmlFor="translation">Translation</Label>
           <Input
             id="translation"
-            name="translation"
-            value={formData.translation}
-            onChange={handleChange}
-            required
+            {...register('translation')}
           />
+          {errors.translation && (
+            <p className="text-sm text-red-500">{errors.translation.message}</p>
+          )}
         </div>
 
         <div className="space-y-2">
           <Label htmlFor="explanation">Explanation</Label>
           <Textarea
             id="explanation"
-            name="explanation"
-            value={formData.explanation}
-            onChange={handleChange}
-            required
+            {...register('explanation')}
           />
+          {errors.explanation && (
+            <p className="text-sm text-red-500">{errors.explanation.message}</p>
+          )}
         </div>
 
         <Button type="submit" disabled={isLoading}>

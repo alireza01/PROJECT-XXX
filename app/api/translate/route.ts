@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
+import type { NextResponse as NextResponseType } from 'next/server';
 import { translateText } from '@/lib/services/translation';
 import { getBookContent } from '@/lib/services/books';
-import prisma from '@/lib/prisma';
+import { prisma } from '@/lib/prisma';
 
 export async function POST(request: Request) {
   try {
@@ -35,7 +36,6 @@ export async function POST(request: Request) {
     const translation = await translateText({
       text: selectedText,
       bookId,
-      targetLanguage,
       context: book.content,
       bookTitle: book.title,
       authorName: book.author,

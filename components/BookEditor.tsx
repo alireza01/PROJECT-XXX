@@ -224,7 +224,7 @@ export function BookEditor({
             <div className="border rounded-lg overflow-hidden">
               <div className="flex flex-wrap gap-2 p-2 border-b bg-gray-50">
                 <Button
-                  variant="secondary"
+                  variant="ghost"
                   size="sm"
                   onClick={() => editor?.chain().focus().toggleBold().run()}
                   className={editor?.isActive('bold') ? 'bg-gray-200' : ''}
@@ -232,7 +232,7 @@ export function BookEditor({
                   <Bold className="w-4 h-4" />
                 </Button>
                 <Button
-                  variant="secondary"
+                  variant="ghost"
                   size="sm"
                   onClick={() => editor?.chain().focus().toggleItalic().run()}
                   className={editor?.isActive('italic') ? 'bg-gray-200' : ''}
@@ -240,7 +240,7 @@ export function BookEditor({
                   <Italic className="w-4 h-4" />
                 </Button>
                 <Button
-                  variant="secondary"
+                  variant="ghost"
                   size="sm"
                   onClick={() => editor?.chain().focus().toggleUnderline().run()}
                   className={editor?.isActive('underline') ? 'bg-gray-200' : ''}
@@ -248,7 +248,7 @@ export function BookEditor({
                   <UnderlineIcon className="w-4 h-4" />
                 </Button>
                 <Button
-                  variant="secondary"
+                  variant="ghost"
                   size="sm"
                   onClick={() => editor?.chain().focus().setTextAlign('left').run()}
                   className={editor?.isActive({ textAlign: 'left' }) ? 'bg-gray-200' : ''}
@@ -256,7 +256,7 @@ export function BookEditor({
                   <AlignLeft className="w-4 h-4" />
                 </Button>
                 <Button
-                  variant="secondary"
+                  variant="ghost"
                   size="sm"
                   onClick={() => editor?.chain().focus().setTextAlign('center').run()}
                   className={editor?.isActive({ textAlign: 'center' }) ? 'bg-gray-200' : ''}
@@ -264,7 +264,7 @@ export function BookEditor({
                   <AlignCenter className="w-4 h-4" />
                 </Button>
                 <Button
-                  variant="secondary"
+                  variant="ghost"
                   size="sm"
                   onClick={() => editor?.chain().focus().setTextAlign('right').run()}
                   className={editor?.isActive({ textAlign: 'right' }) ? 'bg-gray-200' : ''}
@@ -272,7 +272,7 @@ export function BookEditor({
                   <AlignRight className="w-4 h-4" />
                 </Button>
                 <Button
-                  variant="secondary"
+                  variant="ghost"
                   size="sm"
                   onClick={() => {
                     const color = window.prompt('Enter color (e.g., #ff0000)');
@@ -284,7 +284,7 @@ export function BookEditor({
                   <Palette className="w-4 h-4" />
                 </Button>
                 <Button
-                  variant="secondary"
+                  variant="ghost"
                   size="sm"
                   onClick={() => {
                     const color = window.prompt('Enter highlight color (e.g., #ff0000)');
@@ -296,7 +296,7 @@ export function BookEditor({
                   <Highlighter className="w-4 h-4" />
                 </Button>
                 <Button
-                  variant="secondary"
+                  variant="ghost"
                   size="sm"
                   onClick={addLink}
                 >

@@ -9,7 +9,7 @@ export async function POST(request: Request) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user) {
-      return new NextResponse('Unauthorized', { status: 401 });
+      return Response.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const contentType = request.headers.get('content-type');
@@ -21,7 +21,7 @@ export async function POST(request: Request) {
       const title = formData.get('title') as string;
 
       if (!file || !title) {
-        return new NextResponse('Missing required fields', { status: 400 });
+        return Response.json({ error: 'Missing required fields' }, { status: 400 });
       }
 
       const bytes = await file.arrayBuffer();
@@ -40,13 +40,13 @@ export async function POST(request: Request) {
         },
       });
 
-      return NextResponse.json({ bookId: book.id });
+      return Response.json({ bookId: book.id });
     } else {
       // Handle text-based upload
       const { title, author, content } = await request.json();
 
       if (!title || !content) {
-        return new NextResponse('Missing required fields', { status: 400 });
+        return Response.json({ error: 'Missing required fields' }, { status: 400 });
       }
 
       const book = await prisma.book.create({
@@ -59,10 +59,10 @@ export async function POST(request: Request) {
         },
       });
 
-      return NextResponse.json({ bookId: book.id });
+      return Response.json({ bookId: book.id });
     }
   } catch (error) {
     console.error('Error uploading book:', error);
-    return new NextResponse('Internal Server Error', { status: 500 });
+    return Response.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 } 

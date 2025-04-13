@@ -1,11 +1,52 @@
 // @/lib/data.ts
 import { prisma } from "@/lib/prisma-client";
-import { Book, Category } from '@prisma/client';
-import { supabase } from "@/lib/supabase/client"
-import { Book as BookType } from "@/types/book"
+import { PrismaClient, type Book as PrismaBook, type Category as PrismaCategory } from '@prisma/client';
+import { supabase } from "@/lib/supabase/client";
+import { Book as BookType } from "@/types/book";
+
+const prismaClient = new PrismaClient();
 
 // Define ReadingLevel type locally based on schema
 type ReadingLevel = 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED';
+
+// Define types based on Prisma schema
+export type Category = {
+  id: string;
+  name: string;
+  slug: string;
+  _count: {
+    books: number;
+  };
+}
+
+export type Book = {
+  id: string;
+  title: string;
+  coverImage: string | null;
+  rating: number | null;
+  createdAt: Date;
+  updatedAt: Date;
+  author: {
+    id: string;
+    name: string;
+  };
+  category: {
+    id: string;
+    name: string;
+    slug: string;
+  };
+}
+
+// Define where input type
+type BookWhereInput = {
+  category?: {
+    slug?: string;
+  };
+  OR?: Array<{
+    title?: { contains: string; mode: 'insensitive' };
+    author?: { contains: string; mode: 'insensitive' };
+  }>;
+}
 
 // Note: Most functions implicitly use types via Prisma return types.
 
@@ -30,9 +71,9 @@ export async function getTrendingBooks(limit = 6) {
   }
 }
 
-export async function getCategories() {
+export async function getCategories(): Promise<Category[]> {
   try {
-    const categories = await prisma.category.findMany({
+    const categories = await prismaClient.category.findMany({
       select: {
         id: true,
         name: true,
@@ -46,10 +87,11 @@ export async function getCategories() {
       },
     });
 
-    return categories.map((category) => ({
+    return categories.map((category: { id: string; name: string; slug: string; _count: { books: number } }) => ({
       id: category.slug,
       name: category.name,
-      count: category._count.books,
+      slug: category.slug,
+      _count: category._count,
     }));
   } catch (error) {
     console.error("Failed to fetch categories:", error);
@@ -72,13 +114,9 @@ export async function getBooksByCategory(slug: string, limit: number = 12, page:
           id: true,
           title: true,
           slug: true,
-          coverUrl: true,
+          coverImage: true,
           rating: true,
-          author: {
-            select: {
-              name: true,
-            },
-          },
+          author: true,
         },
         skip,
         take: limit,
@@ -96,12 +134,12 @@ export async function getBooksByCategory(slug: string, limit: number = 12, page:
     ]);
 
     return {
-      items: books.map((book) => ({
-        id: book.slug,
+      items: books.map((book: { id: string; title: string; author: any; coverImage: string | null; rating: number | null }) => ({
+        id: book.id,
         title: book.title,
-        author: book.author.name,
-        coverUrl: book.coverUrl || "/images/book-placeholder.jpg",
-        rating: book.rating,
+        author: book.author,
+        coverImage: book.coverImage || "/images/book-placeholder.jpg",
+        rating: book.rating || 0,
       })),
       total,
     };
@@ -319,12 +357,6 @@ export interface BookQueryResult {
   total: number
 }
 
-export interface Category {
-  id: string
-  name: string
-  slug: string
-}
-
 // This is a mock implementation. Replace with actual API calls in production.
 export async function getBooks({
   page = 1,
@@ -332,121 +364,81 @@ export async function getBooks({
   search,
   limit = 12,
 }: BookQueryParams): Promise<BookQueryResult> {
-  // Simulate API delay
-  await new Promise((resolve) => setTimeout(resolve, 1000))
+  try {
+    const skip = (page - 1) * limit;
+    
+    const where: BookWhereInput = {};
+    
+    if (category) {
+      where.category = { slug: category };
+    }
+    
+    if (search) {
+      where.OR = [
+        { title: { contains: search, mode: 'insensitive' } },
+        { author: { contains: search, mode: 'insensitive' } },
+      ];
+    }
 
-  // Mock data - replace with actual API call
-  const mockBooks: BookType[] = [
-    {
-      id: "1",
-      title: "The Great Gatsby",
-      author: "F. Scott Fitzgerald",
-      coverImage: "/books/gatsby.jpg",
-      rating: 4.5,
-      description: "A story of the fabulously wealthy Jay Gatsby and his love for the beautiful Daisy Buchanan.",
-      category: "fiction",
-      publishedAt: "1925-04-10",
-      isbn: "978-0743273565",
-      pageCount: 180,
-      language: "English",
-      publisher: "Scribner",
-    },
-    // Add more mock books here
-  ]
+    const [books, total] = await Promise.all([
+      prisma.book.findMany({
+        where,
+        include: {
+          author: true,
+          category: true,
+        },
+        skip,
+        take: limit,
+        orderBy: {
+          createdAt: 'desc',
+        },
+      }),
+      prisma.book.count({ where }),
+    ]);
 
-  // Filter books based on search and category
-  let filteredBooks = mockBooks
-  if (search) {
-    filteredBooks = filteredBooks.filter(
-      (book) =>
-        book.title.toLowerCase().includes(search.toLowerCase()) ||
-        book.author.toLowerCase().includes(search.toLowerCase())
-    )
+    return {
+      books: books.map((book: Book) => ({
+        id: book.id,
+        title: book.title,
+        author: book.author,
+        category: book.category,
+        coverImage: book.coverImage || '/images/book-placeholder.jpg',
+        rating: book.rating || 0,
+        createdAt: book.createdAt,
+        updatedAt: book.updatedAt,
+      })),
+      total,
+    };
+  } catch (error) {
+    console.error('Error fetching books:', error);
+    throw error;
   }
-  if (category) {
-    filteredBooks = filteredBooks.filter((book) => book.category === category)
-  }
-
-  // Calculate pagination
-  const start = (page - 1) * limit
-  const end = start + limit
-  const paginatedBooks = filteredBooks.slice(start, end)
-
-  return {
-    books: paginatedBooks,
-    total: filteredBooks.length,
-  }
-}
-
-export async function getCategories(): Promise<Category[]> {
-  // Simulate API delay
-  await new Promise((resolve) => setTimeout(resolve, 500))
-
-  // Mock data - replace with actual API call
-  return [
-    { id: "1", name: "Fiction", slug: "fiction" },
-    { id: "2", name: "Non-Fiction", slug: "non-fiction" },
-    { id: "3", name: "Science", slug: "science" },
-    { id: "4", name: "History", slug: "history" },
-    { id: "5", name: "Biography", slug: "biography" },
-  ]
 }
 
 export async function getCategory(slug: string): Promise<Category | null> {
   try {
-    const { data, error } = await supabase
-      .from('categories')
-      .select('*')
-      .eq('slug', slug)
-      .single()
-    
-    if (error) throw error
-    
-    return data
-  } catch (error) {
-    console.error("Error fetching category:", error)
-    return null
-  }
-}
+    const category = await prismaClient.category.findUnique({
+      where: { slug },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        _count: {
+          select: { books: true },
+        },
+      },
+    });
 
-export async function getBooksByCategory(slug: string, pageSize: number, currentPage: number): Promise<BookQueryResult> {
-  try {
-    // First get the category ID
-    const category = await getCategory(slug)
-    if (!category) {
-      return { items: [], total: 0 }
-    }
-    
-    // Then get the books for this category
-    return getBooks({
-      category: category.id,
-      page: currentPage,
-      pageSize
-    })
-  } catch (error) {
-    console.error("Error fetching books by category:", error)
-    return { items: [], total: 0 }
-  }
-}
+    if (!category) return null;
 
-// Helper function to generate mock books
-function generateMockBooks(count: number): BookType[] {
-  return Array.from({ length: count }).map((_, i) => ({
-    id: `mock-${i}`,
-    title: `کتاب نمونه ${i + 1}`,
-    description: 'این یک توضیح نمونه برای کتاب است. در یک پیاده‌سازی واقعی، این متن از دیتابیس خوانده می‌شود.',
-    coverImage: 'https://via.placeholder.com/300x400',
-    author: {
-      id: `author-${i % 5}`,
-      name: `نویسنده ${i % 5 + 1}`,
-    },
-    category: {
-      id: `category-${i % 5}`,
-      name: `دسته‌بندی ${i % 5 + 1}`,
-    },
-    level: ['BEGINNER', 'INTERMEDIATE', 'ADVANCED'][i % 3],
-    rating: 3.5 + (i % 5) / 2,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  })) as BookType[];
+    return {
+      id: category.id,
+      name: category.name,
+      slug: category.slug,
+      _count: category._count,
+    };
+  } catch (error) {
+    console.error("Error fetching category:", error);
+    return null;
+  }
 }

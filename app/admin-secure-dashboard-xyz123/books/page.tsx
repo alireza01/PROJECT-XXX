@@ -1,12 +1,12 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import Card, { CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Search, Plus, MoreHorizontal, Pencil, Trash, Eye } from "lucide-react"
 import {
@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { deleteBook } from "./actions"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 
 interface Book {
   id: string
@@ -56,18 +57,8 @@ export default function BooksPage({ books }: { books: Book[] }) {
     <div className="container mx-auto py-8">
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle>مدیریت کتاب‌ها</CardTitle>
-              <CardDescription>لیست تمام کتاب‌های موجود در سیستم</CardDescription>
-            </div>
-            <Button asChild>
-              <Link href="/admin-secure-dashboard-xyz123/books/new">
-                <Plus className="h-4 w-4 ml-2" />
-                افزودن کتاب جدید
-              </Link>
-            </Button>
-          </div>
+          <CardTitle>لیست کتاب‌ها</CardTitle>
+          <div className="text-sm text-muted-foreground">مدیریت کتاب‌های موجود در سیستم</div>
         </CardHeader>
         <CardContent>
           <div className="flex flex-col gap-4">

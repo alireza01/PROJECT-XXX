@@ -1,49 +1,69 @@
 import { useEffect, useState } from 'react';
-import { ReadingProgress, ReadingSession } from '@/types';
+import { getUserReadingProgress } from '@/lib/data';
+import { useSession } from 'next-auth/react';
+import { prisma } from '@/lib/prisma-client';
 import { formatDuration, formatLastReadTime } from '@/utils/reading';
 
-interface ReadingStatsProps {
+interface ReadingProgress {
   bookId: string;
+  progress: number;
+  lastReadAt: Date;
 }
 
-export default function ReadingStats({ bookId }: ReadingStatsProps) {
+interface ReadingSession {
+  date: Date;
+  duration: number;
+  pagesRead: number;
+}
+
+interface DatabaseReadingSession {
+  date: Date;
+  duration: number;
+  pagesRead: number;
+}
+
+export function ReadingStats() {
+  const { data: session } = useSession();
   const [progress, setProgress] = useState<ReadingProgress | null>(null);
   const [sessions, setSessions] = useState<ReadingSession[]>([]);
 
   useEffect(() => {
-    // TODO: Fetch reading progress and sessions from API
-    const mockProgress: ReadingProgress = {
-      id: 'progress-123',
-      userId: 'user-123',
-      bookId,
-      currentPage: 150,
-      totalPages: 300,
-      lastReadAt: new Date().toISOString(),
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
+    async function fetchReadingData() {
+      if (!session?.user?.id) return;
 
-    const mockSessions: ReadingSession[] = [
-      {
-        id: 'session-1',
-        userId: 'user-123',
-        bookId,
-        startTime: new Date(Date.now() - 3600000).toISOString(),
-        endTime: new Date().toISOString(),
-        pagesRead: 30,
-        duration: 3600,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      },
-    ];
+      try {
+        const readingProgress = await getUserReadingProgress(session.user.id);
+        if (readingProgress.length > 0) {
+          setProgress(readingProgress[0]);
+        }
 
-    setProgress(mockProgress);
-    setSessions(mockSessions);
-  }, [bookId]);
+        // Fetch reading sessions from the database
+        const readingSessions = await prisma.readingSession.findMany({
+          where: {
+            userId: session.user.id,
+          },
+          orderBy: {
+            date: 'desc',
+          },
+          take: 7, // Last 7 days
+        });
+
+        setSessions(readingSessions.map((session: DatabaseReadingSession) => ({
+          date: session.date,
+          duration: session.duration,
+          pagesRead: session.pagesRead,
+        })));
+      } catch (error) {
+        console.error('Error fetching reading data:', error);
+      }
+    }
+
+    fetchReadingData();
+  }, [session?.user?.id]);
 
   if (!progress) return null;
 
-  const progressPercentage = (progress.currentPage / progress.totalPages) * 100;
+  const progressPercentage = (progress.progress / 100) * 100;
   const totalPagesRead = sessions.reduce((sum, session) => sum + session.pagesRead, 0);
   const totalReadingTime = sessions.reduce((sum, session) => sum + session.duration, 0);
 
@@ -58,7 +78,7 @@ export default function ReadingStats({ bookId }: ReadingStatsProps) {
           />
         </div>
         <p className="text-sm text-gray-600">
-          {progress.currentPage} of {progress.totalPages} pages ({progressPercentage.toFixed(1)}%)
+          {progress.progress}%
         </p>
         <p className="text-sm text-gray-500">
           Last read {formatLastReadTime(progress.lastReadAt)}
@@ -83,10 +103,10 @@ export default function ReadingStats({ bookId }: ReadingStatsProps) {
         <h3 className="text-lg font-semibold text-gray-900">Recent Sessions</h3>
         <div className="space-y-2">
           {sessions.map((session) => (
-            <div key={session.id} className="bg-gray-50 p-4 rounded-lg">
+            <div key={session.date.toISOString()} className="bg-gray-50 p-4 rounded-lg">
               <div className="flex justify-between items-center">
                 <p className="text-sm text-gray-600">
-                  {new Date(session.startTime).toLocaleDateString()}
+                  {session.date.toLocaleDateString()}
                 </p>
                 <p className="text-sm text-gray-600">{session.pagesRead} pages</p>
               </div>

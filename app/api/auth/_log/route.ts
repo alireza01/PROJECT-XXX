@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma-client"
+import type { NextRequest } from 'next/server'
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
     const { userId, action, details } = await request.json()
 
@@ -13,10 +14,10 @@ export async function POST(request: Request) {
       },
     })
 
-    return NextResponse.json(log)
+    return Response.json(log)
   } catch (error) {
     console.error("Auth log error:", error)
-    return NextResponse.json(
+    return Response.json(
       { error: "Failed to log auth action" },
       { status: 500 }
     )

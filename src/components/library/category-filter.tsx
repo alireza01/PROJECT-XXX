@@ -14,7 +14,7 @@ export function CategoryFilter({ categories }: CategoryFilterProps) {
   const currentCategory = searchParams.get("category") || "all"
 
   const handleCategoryChange = (value: string) => {
-    const params = new URLSearchParams(searchParams)
+    const params = new URLSearchParams(searchParams.toString())
     if (value === "all") {
       params.delete("category")
     } else {

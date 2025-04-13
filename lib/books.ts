@@ -81,8 +81,10 @@ export async function getBooks(params?: {
       query = query.limit(params.limit)
     }
 
-    if (params?.offset) {
-      query = query.offset(params.offset)
+    if (params?.offset !== undefined) {
+      const start = params.offset
+      const end = params.offset + (params.limit || 10) - 1
+      query = query.range(start, end)
     }
 
     const { data, error } = await query
@@ -298,4 +300,4 @@ export async function updateBookContent(bookId: string, content: string): Promis
     toast.error("Failed to update book content")
     return false
   }
-} 
+}

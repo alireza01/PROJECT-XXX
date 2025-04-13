@@ -1,8 +1,8 @@
 // @/app/api/books/[id]/like/route.ts
-import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/db";
+import { getAuthSession } from "@/lib/auth";
+import { prisma } from "@/lib/prisma-client";
 import { z } from "zod";
+import type { NextRequest } from 'next/server';
 
 // Validation schema for route parameters
 const routeParamsSchema = z.object({
@@ -17,25 +17,25 @@ const routeParamsSchema = z.object({
  * @returns JSON response with isLiked status
  */
 export async function GET(
-  request: Request,
+  request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
     // Validate the book ID
     const result = routeParamsSchema.safeParse(params);
     if (!result.success) {
-      return NextResponse.json(
+      return Response.json(
         { error: "Invalid book ID format" },
         { status: 400 }
       );
     }
 
     const bookId = params.id;
-    const session = await auth();
+    const session = await getAuthSession();
 
     // If user is not logged in, return not liked
     if (!session?.user) {
-      return NextResponse.json({ isLiked: false });
+      return Response.json({ isLiked: false });
     }
 
     const userId = session.user.id;
@@ -48,130 +48,151 @@ export async function GET(
           bookId,
         },
       },
-      select: { id: true } // Only need to know if it exists
     });
 
-    return NextResponse.json({ isLiked: !!like });
+    return Response.json({ isLiked: !!like });
   } catch (error) {
-    console.error(`API Error: [/api/books/${params.id}/like GET]`, error);
-    return NextResponse.json(
-      { error: "Internal server error while checking like status" },
+    console.error("Error checking like status:", error);
+    return Response.json(
+      { error: "Failed to check like status" },
       { status: 500 }
     );
   }
 }
 
 /**
- * POST handler to add a like to a book
+ * POST handler to like a book
+ * 
+ * @param request - Standard Request object
+ * @param params - Route parameters containing book id
+ * @returns JSON response with success status
  */
 export async function POST(
-  request: Request,
+  request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
     // Validate the book ID
     const result = routeParamsSchema.safeParse(params);
     if (!result.success) {
-      return NextResponse.json(
+      return Response.json(
         { error: "Invalid book ID format" },
         { status: 400 }
       );
     }
 
     const bookId = params.id;
-    const session = await auth();
+    const session = await getAuthSession();
 
-    // Check if user is authenticated
     if (!session?.user) {
-      return NextResponse.json(
-        { error: "Authentication required" },
+      return Response.json(
+        { error: "Unauthorized" },
         { status: 401 }
       );
     }
 
     const userId = session.user.id;
 
-    // Check if book exists
-    const book = await prisma.book.findUnique({
-      where: { id: bookId },
-      select: { id: true }
-    });
-
-    if (!book) {
-      return NextResponse.json(
-        { error: "Book not found" },
-        { status: 404 }
-      );
-    }
-
-    // Create the like (ignoring if it already exists)
-    await prisma.like.upsert({
+    // Check if like already exists
+    const existingLike = await prisma.like.findUnique({
       where: {
         userId_bookId: {
           userId,
           bookId,
         },
       },
-      update: {}, // No updates needed if it exists
-      create: {
+    });
+
+    if (existingLike) {
+      return Response.json(
+        { error: "Book already liked" },
+        { status: 400 }
+      );
+    }
+
+    // Create new like
+    await prisma.like.create({
+      data: {
         userId,
         bookId,
       },
     });
 
-    return NextResponse.json({ success: true, isLiked: true });
+    return Response.json({ success: true });
   } catch (error) {
-    console.error(`API Error: [/api/books/${params.id}/like POST]`, error);
-    return NextResponse.json(
-      { error: "Internal server error while adding like" },
+    console.error("Error liking book:", error);
+    return Response.json(
+      { error: "Failed to like book" },
       { status: 500 }
     );
   }
 }
 
 /**
- * DELETE handler to remove a like from a book
+ * DELETE handler to unlike a book
+ * 
+ * @param request - Standard Request object
+ * @param params - Route parameters containing book id
+ * @returns JSON response with success status
  */
 export async function DELETE(
-  request: Request,
+  request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
     // Validate the book ID
     const result = routeParamsSchema.safeParse(params);
     if (!result.success) {
-      return NextResponse.json(
+      return Response.json(
         { error: "Invalid book ID format" },
         { status: 400 }
       );
     }
 
     const bookId = params.id;
-    const session = await auth();
+    const session = await getAuthSession();
 
-    // Check if user is authenticated
     if (!session?.user) {
-      return NextResponse.json(
-        { error: "Authentication required" },
+      return Response.json(
+        { error: "Unauthorized" },
         { status: 401 }
       );
     }
 
     const userId = session.user.id;
 
-    // Delete the like if it exists
-    await prisma.like.deleteMany({
+    // Check if like exists
+    const existingLike = await prisma.like.findUnique({
       where: {
-        userId,
-        bookId,
+        userId_bookId: {
+          userId,
+          bookId,
+        },
       },
     });
 
-    return NextResponse.json({ success: true, isLiked: false });
+    if (!existingLike) {
+      return Response.json(
+        { error: "Book not liked" },
+        { status: 400 }
+      );
+    }
+
+    // Delete the like
+    await prisma.like.delete({
+      where: {
+        userId_bookId: {
+          userId,
+          bookId,
+        },
+      },
+    });
+
+    return Response.json({ success: true });
   } catch (error) {
-    console.error(`API Error: [/api/books/${params.id}/like DELETE]`, error);
-    return NextResponse.json(
-      { error: "Internal server error while removing like" },
+    console.error("Error unliking book:", error);
+    return Response.json(
+      { error: "Failed to unlike book" },
       { status: 500 }
     );
   }

@@ -1,14 +1,14 @@
-import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma-client"
+import type { NextRequest } from 'next/server'
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
     
     if (!session?.user?.id) {
-      return NextResponse.json(
+      return Response.json(
         { error: "Unauthorized" },
         { status: 401 }
       )
@@ -18,22 +18,22 @@ export async function GET() {
       where: { userId: session.user.id },
     })
 
-    return NextResponse.json(profile || { bio: "" })
+    return Response.json(profile || { bio: "" })
   } catch (error) {
     console.error("Profile fetch error:", error)
-    return NextResponse.json(
+    return Response.json(
       { error: "Failed to fetch profile" },
       { status: 500 }
     )
   }
 }
 
-export async function PUT(request: Request) {
+export async function PUT(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
     
     if (!session?.user?.id) {
-      return NextResponse.json(
+      return Response.json(
         { error: "Unauthorized" },
         { status: 401 }
       )
@@ -60,10 +60,10 @@ export async function PUT(request: Request) {
       },
     })
 
-    return NextResponse.json(profile)
+    return Response.json(profile)
   } catch (error) {
     console.error("Profile update error:", error)
-    return NextResponse.json(
+    return Response.json(
       { error: "Failed to update profile" },
       { status: 500 }
     )

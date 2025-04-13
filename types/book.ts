@@ -1,7 +1,9 @@
-export interface Book {
-  id: string
-  title: string
-  author: string
-  coverImage: string
-  rating: number
-} 
+import { Prisma } from '@prisma/client'
+
+export type Book = Prisma.BookGetPayload<{
+  include: {
+    author: true
+    categories: true
+    vocabulary: true
+  }
+}> 

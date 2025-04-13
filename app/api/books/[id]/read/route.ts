@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
-import { auth } from "@/v2/lib/auth"
-import { prisma } from "@/v2/lib/db"
-import { getBookPageWithWords } from "@/v2/lib/db-actions"
+import { getAuthSession } from "@/lib/auth"
+import { prisma } from "@/lib/prisma"
+import { getBookPageWithWords } from "@/lib/data"
 
 export async function GET(request: Request, { params }: { params: { id: string } }) {
   try {
@@ -17,11 +17,11 @@ export async function GET(request: Request, { params }: { params: { id: string }
     })
 
     if (!book) {
-      return NextResponse.json({ error: "Book not found" }, { status: 404 })
+      return Response.json({ error: "Book not found" }, { status: 404 })
     }
 
     // Get current user
-    const session = await auth()
+    const session = await getAuthSession()
     const userId = session?.user?.id || "anonymous"
 
     // Get user progress if logged in
@@ -74,7 +74,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
       isBookmarked = !!bookmark
     }
 
-    return NextResponse.json({
+    return Response.json({
       book: {
         id: book.id,
         title: book.title,
@@ -88,6 +88,6 @@ export async function GET(request: Request, { params }: { params: { id: string }
     })
   } catch (error) {
     console.error("Error fetching book page:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    return Response.json({ error: "Internal server error" }, { status: 500 })
   }
 }
