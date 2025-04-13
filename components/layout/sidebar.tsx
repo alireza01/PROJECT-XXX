@@ -4,7 +4,7 @@ import { useState } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { motion, AnimatePresence } from "framer-motion"
-import { Button } from "@/components/ui/button"
+import Button from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import {
   Settings,
@@ -37,7 +37,11 @@ const routes = [
   },
 ]
 
-export function Sidebar() {
+interface SidebarProps {
+  className?: string
+}
+
+export function Sidebar({ className }: SidebarProps) {
   const [isCollapsed, setIsCollapsed] = useState(false)
   const pathname = usePathname()
   const { user } = useSupabaseAuth()
@@ -48,7 +52,7 @@ export function Sidebar() {
     <motion.div
       initial={false}
       animate={{ width: isCollapsed ? "5rem" : "16rem" }}
-      className="fixed right-0 top-16 h-[calc(100vh-4rem)] border-l border-gold-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-sm"
+      className={cn("fixed right-0 top-16 h-[calc(100vh-4rem)] border-l border-gold-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-sm", className)}
     >
       <div className="flex h-full flex-col">
         <div className="flex items-center justify-between p-4">

@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
-import Card from '@/components/ui/Card';
-import Button from '@/components/ui/Button';
+import Card from '@/components/ui/card';
+import Button from '@/components/ui/button';
 
 const ADMIN_CREDENTIALS = {
   username: process.env.NEXT_PUBLIC_ADMIN_USERNAME || 'admin',

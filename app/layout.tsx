@@ -10,6 +10,7 @@ import { SiteHeader } from "@/components/layout/site-header"
 import { PageTransition } from "@/components/ui/page-transition"
 import { Sidebar } from "@/components/layout/sidebar"
 import { Breadcrumb } from "@/components/ui/breadcrumb"
+import { Providers } from "@/components/providers"
 
 // Use Inter for better Latin support
 const inter = Inter({ subsets: ["latin"] })
@@ -45,27 +46,29 @@ export default function RootLayout({
       <body className={`${inter.className} antialiased`}>
         <ThemeProvider>
           <AdminProvider>
-            {/* Main content wrapper */}
-            <div className="flex flex-col min-h-screen bg-gradient-to-b from-amber-50/80 via-white to-amber-50/30 dark:from-gray-900 dark:via-gray-950 dark:to-gray-900">
-              {/* Header */}
-              <SiteHeader className="glass-effect sticky top-0 z-50" />
+            <Providers>
+              {/* Main content wrapper */}
+              <div className="flex flex-col min-h-screen bg-gradient-to-b from-amber-50/80 via-white to-amber-50/30 dark:from-gray-900 dark:via-gray-950 dark:to-gray-900">
+                {/* Header */}
+                <SiteHeader className="glass-effect sticky top-0 z-50" />
+                
+                {/* Sidebar */}
+                <Sidebar className="glass-effect fixed right-0 top-16 h-[calc(100vh-4rem)] w-64 border-l" />
+                
+                {/* Main content with padding for fixed header */}
+                <main className="flex-1 pt-16 pr-64">
+                  <div className="container mx-auto px-4 py-4">
+                    <Breadcrumb className="glass-effect rounded-lg p-2" />
+                  </div>
+                  <PageTransition className="animate-fade-in">
+                    {children}
+                  </PageTransition>
+                </main>
+              </div>
               
-              {/* Sidebar */}
-              <Sidebar className="glass-effect fixed right-0 top-16 h-[calc(100vh-4rem)] w-64 border-l" />
-              
-              {/* Main content with padding for fixed header */}
-              <main className="flex-1 pt-16 pr-64">
-                <div className="container mx-auto px-4 py-4">
-                  <Breadcrumb className="glass-effect rounded-lg p-2" />
-                </div>
-                <PageTransition className="animate-fade-in">
-                  {children}
-                </PageTransition>
-              </main>
-            </div>
-            
-            {/* Toast notifications */}
-            <Toaster />
+              {/* Toast notifications */}
+              <Toaster />
+            </Providers>
           </AdminProvider>
         </ThemeProvider>
       </body>

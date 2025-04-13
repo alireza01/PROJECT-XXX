@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { motion } from "framer-motion"
-import { Button } from "@/components/ui/button"
+import Button from "@/components/ui/button"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { cn } from "@/lib/utils"
@@ -13,7 +13,15 @@ import { ThemeToggle } from "@/components/theme-toggle"
 import { useSupabaseAuth } from "@/hooks/use-supabase-auth"
 import { UserAccountNav } from "@/components/user-account-nav"
 
-export function SiteHeader() {
+interface SiteHeaderProps {
+  className?: string
+}
+
+interface UserAccountNavProps {
+  user: any
+}
+
+export function SiteHeader({ className }: SiteHeaderProps) {
   const [isScrolled, setIsScrolled] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const pathname = usePathname()
@@ -53,6 +61,7 @@ export function SiteHeader() {
         isScrolled
           ? "bg-white/80 dark:bg-gray-900/80 backdrop-blur-md border-b border-gold-200 dark:border-gray-800 shadow-sm"
           : "bg-transparent",
+        className
       )}
     >
       <div className="container flex h-16 items-center justify-between">

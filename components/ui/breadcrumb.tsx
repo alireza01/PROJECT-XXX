@@ -17,14 +17,18 @@ const routeMap: Record<string, string> = {
   signup: "ثبت‌نام",
 }
 
-export function Breadcrumb() {
+interface BreadcrumbProps {
+  className?: string
+}
+
+export function Breadcrumb({ className }: BreadcrumbProps) {
   const pathname = usePathname()
   const paths = pathname.split("/").filter(Boolean)
 
   if (paths.length <= 1) return null
 
   return (
-    <nav className="flex items-center space-x-1 space-x-reverse text-sm text-gold-800 dark:text-gold-200">
+    <nav className={cn("flex items-center space-x-1 space-x-reverse text-sm text-gold-800 dark:text-gold-200", className)} aria-label="Breadcrumb">
       <Link
         href="/"
         className="flex items-center hover:text-gold-400 transition-colors"

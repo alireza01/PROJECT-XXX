@@ -2,6 +2,7 @@
 
 import { motion } from "framer-motion"
 import { usePathname } from "next/navigation"
+import { cn } from "@/lib/utils"
 
 const variants = {
   hidden: { opacity: 0, x: -20, y: 0 },
@@ -9,7 +10,12 @@ const variants = {
   exit: { opacity: 0, x: 20, y: 0 }
 }
 
-export function PageTransition({ children }: { children: React.ReactNode }) {
+interface PageTransitionProps {
+  children: React.ReactNode
+  className?: string
+}
+
+export function PageTransition({ children, className }: PageTransitionProps) {
   const pathname = usePathname()
 
   return (
@@ -20,6 +26,7 @@ export function PageTransition({ children }: { children: React.ReactNode }) {
       exit="exit"
       variants={variants}
       transition={{ duration: 0.3, ease: "easeInOut" }}
+      className={cn("transition-all duration-300", className)}
     >
       {children}
     </motion.div>
