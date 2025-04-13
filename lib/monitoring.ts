@@ -18,49 +18,39 @@ export const initPerformanceMonitoring = () => {
 
 // Track custom metrics
 export const trackMetric = (name: string, value: number, tags?: Record<string, string>) => {
-  if (process.env.NODE_ENV === 'production') {
-    Sentry.metrics.increment(name, value, tags);
-    logInfo(`Metric tracked: ${name}`, { value, tags });
-  }
+  Sentry.metrics.increment(name, value, tags);
+  logInfo(`Metric tracked: ${name}`, { value, tags });
 };
 
 // Track user interactions
 export const trackUserInteraction = (eventName: string, properties?: Record<string, any>) => {
-  if (process.env.NODE_ENV === 'production') {
-    Sentry.addBreadcrumb({
-      category: 'user',
-      message: eventName,
-      level: 'info',
-      data: properties,
-    });
-    logInfo(`User interaction: ${eventName}`, properties);
-  }
+  Sentry.addBreadcrumb({
+    category: 'user',
+    message: eventName,
+    level: 'info',
+    data: properties,
+  });
+  logInfo(`User interaction: ${eventName}`, properties);
 };
 
 // Track errors with context
 export const trackError = (error: Error, context?: Record<string, any>) => {
-  if (process.env.NODE_ENV === 'production') {
-    Sentry.captureException(error, {
-      contexts: {
-        error: context,
-      },
-    });
-    logError(error, context);
-  }
+  Sentry.captureException(error, {
+    contexts: {
+      error: context,
+    },
+  });
+  logError(error, context);
 };
 
 // Track page performance
 export const trackPagePerformance = (pageName: string, loadTime: number) => {
-  if (process.env.NODE_ENV === 'production') {
-    trackMetric('page.load_time', loadTime, { page: pageName });
-    logInfo(`Page performance: ${pageName}`, { loadTime });
-  }
+  trackMetric('page.load_time', loadTime, { page: pageName });
+  logInfo(`Page performance: ${pageName}`, { loadTime });
 };
 
 // Track API performance
 export const trackApiPerformance = (endpoint: string, duration: number, status: number) => {
-  if (process.env.NODE_ENV === 'production') {
-    trackMetric('api.response_time', duration, { endpoint, status: status.toString() });
-    logInfo(`API performance: ${endpoint}`, { duration, status });
-  }
+  trackMetric('api.response_time', duration, { endpoint, status: status.toString() });
+  logInfo(`API performance: ${endpoint}`, { duration, status });
 }; 
