@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import TextAlign from '@tiptap/extension-text-align';
@@ -11,11 +11,12 @@ import Highlight from '@tiptap/extension-highlight';
 import Link from '@tiptap/extension-link';
 import Placeholder from '@tiptap/extension-placeholder';
 import Underline from '@tiptap/extension-underline';
-import { Button } from './ui/button';
+import Button from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { toast } from 'sonner';
-import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
+import Card from './ui/card';
+import { CardContent, CardHeader, CardTitle } from './ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { 
   Bold, 
@@ -29,18 +30,33 @@ import {
   Highlighter,
   Link as LinkIcon,
   BookOpen,
-  Eye
+  Eye,
+  Save,
+  Loader2
 } from 'lucide-react';
 
 interface BookEditorProps {
   onUploadComplete?: (bookId: string) => void;
+  initialContent?: string;
+  initialTitle?: string;
+  initialAuthor?: string;
+  isEditing?: boolean;
 }
 
-export function BookEditor({ onUploadComplete }: BookEditorProps) {
-  const [title, setTitle] = useState('');
-  const [author, setAuthor] = useState('');
+export function BookEditor({ 
+  onUploadComplete, 
+  initialContent = '', 
+  initialTitle = '', 
+  initialAuthor = '',
+  isEditing = false
+}: BookEditorProps) {
+  const [title, setTitle] = useState(initialTitle);
+  const [author, setAuthor] = useState(initialAuthor);
   const [isUploading, setIsUploading] = useState(false);
   const [activeTab, setActiveTab] = useState('edit');
+  const [wordCount, setWordCount] = useState(0);
+  const [pageCount, setPageCount] = useState(0);
+  const [autoSaveTimer, setAutoSaveTimer] = useState<NodeJS.Timeout | null>(null);
 
   const editor = useEditor({
     extensions: [
@@ -62,11 +78,57 @@ export function BookEditor({ onUploadComplete }: BookEditorProps) {
       }),
       Underline,
     ],
-    content: '',
+    content: initialContent,
     onUpdate: ({ editor }) => {
-      // Update content state if needed
+      const text = editor.getText();
+      const words = text.split(/\s+/).filter(Boolean).length;
+      setWordCount(words);
+      setPageCount(Math.ceil(words / 250)); // Assuming 250 words per page
+
+      // Auto-save after 5 seconds of inactivity
+      if (autoSaveTimer) {
+        clearTimeout(autoSaveTimer);
+      }
+      const timer = setTimeout(() => {
+        handleAutoSave();
+      }, 5000);
+      setAutoSaveTimer(timer);
     },
   });
+
+  useEffect(() => {
+    return () => {
+      if (autoSaveTimer) {
+        clearTimeout(autoSaveTimer);
+      }
+    };
+  }, [autoSaveTimer]);
+
+  const handleAutoSave = async () => {
+    if (!editor?.getText() || !title) return;
+
+    try {
+      const response = await fetch('/api/books/autosave', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          title,
+          author,
+          content: editor?.getHTML(),
+          wordCount,
+          pageCount,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Auto-save failed');
+      }
+    } catch (error) {
+      console.error('Auto-save error:', error);
+    }
+  };
 
   const addLink = useCallback(() => {
     const url = window.prompt('URL');
@@ -93,6 +155,8 @@ export function BookEditor({ onUploadComplete }: BookEditorProps) {
           title,
           author,
           content: editor?.getHTML(),
+          wordCount,
+          pageCount,
         }),
       });
 
@@ -108,6 +172,8 @@ export function BookEditor({ onUploadComplete }: BookEditorProps) {
       setTitle('');
       setAuthor('');
       editor?.commands.setContent('');
+      setWordCount(0);
+      setPageCount(0);
     } catch (error) {
       toast.error('Failed to upload book');
     } finally {
@@ -115,13 +181,10 @@ export function BookEditor({ onUploadComplete }: BookEditorProps) {
     }
   };
 
-  const wordCount = editor?.getText().split(/\s+/).filter(Boolean).length || 0;
-  const pageCount = Math.ceil(wordCount / 250); // Assuming 250 words per page
-
   return (
     <Card className="w-full max-w-4xl mx-auto">
       <CardHeader>
-        <CardTitle>Create New Book</CardTitle>
+        <CardTitle>{isEditing ? 'Edit Book' : 'Create New Book'}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-6">
         <div className="space-y-2">
@@ -161,7 +224,7 @@ export function BookEditor({ onUploadComplete }: BookEditorProps) {
             <div className="border rounded-lg overflow-hidden">
               <div className="flex flex-wrap gap-2 p-2 border-b bg-gray-50">
                 <Button
-                  variant="ghost"
+                  variant="secondary"
                   size="sm"
                   onClick={() => editor?.chain().focus().toggleBold().run()}
                   className={editor?.isActive('bold') ? 'bg-gray-200' : ''}
@@ -169,7 +232,7 @@ export function BookEditor({ onUploadComplete }: BookEditorProps) {
                   <Bold className="w-4 h-4" />
                 </Button>
                 <Button
-                  variant="ghost"
+                  variant="secondary"
                   size="sm"
                   onClick={() => editor?.chain().focus().toggleItalic().run()}
                   className={editor?.isActive('italic') ? 'bg-gray-200' : ''}
@@ -177,7 +240,7 @@ export function BookEditor({ onUploadComplete }: BookEditorProps) {
                   <Italic className="w-4 h-4" />
                 </Button>
                 <Button
-                  variant="ghost"
+                  variant="secondary"
                   size="sm"
                   onClick={() => editor?.chain().focus().toggleUnderline().run()}
                   className={editor?.isActive('underline') ? 'bg-gray-200' : ''}
@@ -185,7 +248,7 @@ export function BookEditor({ onUploadComplete }: BookEditorProps) {
                   <UnderlineIcon className="w-4 h-4" />
                 </Button>
                 <Button
-                  variant="ghost"
+                  variant="secondary"
                   size="sm"
                   onClick={() => editor?.chain().focus().setTextAlign('left').run()}
                   className={editor?.isActive({ textAlign: 'left' }) ? 'bg-gray-200' : ''}
@@ -193,7 +256,7 @@ export function BookEditor({ onUploadComplete }: BookEditorProps) {
                   <AlignLeft className="w-4 h-4" />
                 </Button>
                 <Button
-                  variant="ghost"
+                  variant="secondary"
                   size="sm"
                   onClick={() => editor?.chain().focus().setTextAlign('center').run()}
                   className={editor?.isActive({ textAlign: 'center' }) ? 'bg-gray-200' : ''}
@@ -201,7 +264,7 @@ export function BookEditor({ onUploadComplete }: BookEditorProps) {
                   <AlignCenter className="w-4 h-4" />
                 </Button>
                 <Button
-                  variant="ghost"
+                  variant="secondary"
                   size="sm"
                   onClick={() => editor?.chain().focus().setTextAlign('right').run()}
                   className={editor?.isActive({ textAlign: 'right' }) ? 'bg-gray-200' : ''}
@@ -209,7 +272,7 @@ export function BookEditor({ onUploadComplete }: BookEditorProps) {
                   <AlignRight className="w-4 h-4" />
                 </Button>
                 <Button
-                  variant="ghost"
+                  variant="secondary"
                   size="sm"
                   onClick={() => {
                     const color = window.prompt('Enter color (e.g., #ff0000)');
@@ -221,7 +284,7 @@ export function BookEditor({ onUploadComplete }: BookEditorProps) {
                   <Palette className="w-4 h-4" />
                 </Button>
                 <Button
-                  variant="ghost"
+                  variant="secondary"
                   size="sm"
                   onClick={() => {
                     const color = window.prompt('Enter highlight color (e.g., #ff0000)');
@@ -233,7 +296,7 @@ export function BookEditor({ onUploadComplete }: BookEditorProps) {
                   <Highlighter className="w-4 h-4" />
                 </Button>
                 <Button
-                  variant="ghost"
+                  variant="secondary"
                   size="sm"
                   onClick={addLink}
                 >
@@ -262,7 +325,17 @@ export function BookEditor({ onUploadComplete }: BookEditorProps) {
             disabled={isUploading || !title || !editor?.getText()}
             className="ml-auto"
           >
-            {isUploading ? 'Uploading...' : 'Save Book'}
+            {isUploading ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Uploading...
+              </>
+            ) : (
+              <>
+                <Save className="w-4 h-4 mr-2" />
+                {isEditing ? 'Update Book' : 'Save Book'}
+              </>
+            )}
           </Button>
         </div>
       </CardContent>

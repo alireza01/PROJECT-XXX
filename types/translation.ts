@@ -3,4 +3,5 @@ export interface TranslationResult {
   sourceLanguage: string;
   targetLanguage: string;
   provider: string;
+  timestamp: number;
 } 

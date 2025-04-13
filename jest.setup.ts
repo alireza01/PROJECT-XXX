@@ -3,7 +3,12 @@ import '@testing-library/jest-dom';
 // Mock environment variables
 process.env.NEXT_PUBLIC_SENTRY_DSN = 'test-sentry-dsn';
 process.env.NEXT_PUBLIC_ALLOWED_ORIGINS = 'http://localhost:3000';
-process.env.NODE_ENV = 'test';
+
+// Override NODE_ENV for tests
+Object.defineProperty(process.env, 'NODE_ENV', {
+  value: 'test',
+  writable: true
+});
 
 // Mock next/router
 jest.mock('next/router', () => ({
