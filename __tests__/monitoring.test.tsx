@@ -6,8 +6,19 @@ import { Monitoring } from '@/components/Monitoring';
 import React from 'react';
 
 describe('Monitoring Functions', () => {
+  const originalEnv = process.env.NODE_ENV;
+
   beforeEach(() => {
     jest.clearAllMocks();
+    Object.defineProperty(process, 'env', {
+      value: { ...process.env, NODE_ENV: 'production' }
+    });
+  });
+
+  afterEach(() => {
+    Object.defineProperty(process, 'env', {
+      value: { ...process.env, NODE_ENV: originalEnv }
+    });
   });
 
   it('should track metrics correctly', () => {
@@ -76,6 +87,21 @@ describe('Monitoring Functions', () => {
 });
 
 describe('Monitoring Component', () => {
+  const originalEnv = process.env.NODE_ENV;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    Object.defineProperty(process, 'env', {
+      value: { ...process.env, NODE_ENV: 'production' }
+    });
+  });
+
+  afterEach(() => {
+    Object.defineProperty(process, 'env', {
+      value: { ...process.env, NODE_ENV: originalEnv }
+    });
+  });
+
   it('renders without crashing', () => {
     render(<Monitoring />);
     expect(screen.getByTestId('monitoring')).toBeInTheDocument();
