@@ -34,15 +34,19 @@ jest.mock('next/image', () => ({
 }));
 
 // Mock Sentry
-jest.mock('@sentry/nextjs', () => ({
-  init: jest.fn(),
-  captureException: jest.fn(),
-  addBreadcrumb: jest.fn(),
-  metrics: {
+jest.mock('@sentry/nextjs', () => {
+  const mockMetrics = {
     increment: jest.fn(),
-  },
-  Integrations: {
-    BrowserTracing: jest.fn(),
-    Http: jest.fn(),
-  },
-})); 
+  };
+
+  return {
+    init: jest.fn(),
+    captureException: jest.fn(),
+    addBreadcrumb: jest.fn(),
+    metrics: mockMetrics,
+    Integrations: {
+      BrowserTracing: jest.fn(),
+      Http: jest.fn(),
+    },
+  };
+}); 
