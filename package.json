@@ -1,5 +1,5 @@
 {
-  "name": "ketab-yar",
+  "name": "bookapp",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -62,5 +62,10 @@
     "setupFilesAfterEnv": [
       "<rootDir>/jest.setup.ts"
     ]
+  },
+  "devDependencies": {
+    "autoprefixer": "^10.4.21",
+    "postcss": "^8.5.3",
+    "tailwindcss": "^3.4.17"
   }
 }
