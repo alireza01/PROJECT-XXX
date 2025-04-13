@@ -77,9 +77,7 @@ describe('Monitoring Functions', () => {
 
 describe('Monitoring Component', () => {
   it('renders without crashing', () => {
-    const { container } = render(
-      React.createElement(Monitoring)
-    );
-    expect(container).toBeInTheDocument();
+    render(<Monitoring />);
+    expect(screen.getByTestId('monitoring')).toBeInTheDocument();
   });
 }); 
