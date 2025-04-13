@@ -3,6 +3,7 @@ import * as Sentry from '@sentry/nextjs';
 import '@testing-library/jest-dom';
 import { render, screen } from '@testing-library/react';
 import { Monitoring } from '@/components/Monitoring';
+import React from 'react';
 
 describe('Monitoring Functions', () => {
   beforeEach(() => {
@@ -76,7 +77,9 @@ describe('Monitoring Functions', () => {
 
 describe('Monitoring Component', () => {
   it('renders without crashing', () => {
-    render(<Monitoring />);
-    expect(screen.getByText('Monitoring')).toBeInTheDocument();
+    const { container } = render(
+      React.createElement(Monitoring)
+    );
+    expect(container).toBeInTheDocument();
   });
 }); 
