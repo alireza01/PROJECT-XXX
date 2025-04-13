@@ -1,5 +1,8 @@
 import { trackMetric, trackUserInteraction, trackError, trackPagePerformance, trackApiPerformance } from '../lib/monitoring';
 import * as Sentry from '@sentry/nextjs';
+import '@testing-library/jest-dom';
+import { render, screen } from '@testing-library/react';
+import { Monitoring } from '@/components/Monitoring';
 
 describe('Monitoring Functions', () => {
   beforeEach(() => {
@@ -68,5 +71,12 @@ describe('Monitoring Functions', () => {
       duration,
       { endpoint, status: '200' }
     );
+  });
+});
+
+describe('Monitoring Component', () => {
+  it('renders without crashing', () => {
+    render(<Monitoring />);
+    expect(screen.getByText('Monitoring')).toBeInTheDocument();
   });
 }); 
