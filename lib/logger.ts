@@ -1,24 +1,17 @@
-import winston from 'winston';
 import * as Sentry from '@sentry/nextjs';
 
-// Configure Winston logger
-const logger = winston.createLogger({
-  level: process.env.NODE_ENV === 'production' ? 'info' : 'debug',
-  format: winston.format.combine(
-    winston.format.timestamp(),
-    winston.format.json()
-  ),
-  transports: [
-    new winston.transports.Console({
-      format: winston.format.combine(
-        winston.format.colorize(),
-        winston.format.simple()
-      ),
-    }),
-    new winston.transports.File({ filename: 'logs/error.log', level: 'error' }),
-    new winston.transports.File({ filename: 'logs/combined.log' }),
-  ],
-});
+// Simple console-based logger for testing
+const logger = {
+  info: (message: string, meta?: any) => {
+    console.log(`[INFO] ${message}`, meta);
+  },
+  error: (message: string, meta?: any) => {
+    console.error(`[ERROR] ${message}`, meta);
+  },
+  warn: (message: string, meta?: any) => {
+    console.warn(`[WARN] ${message}`, meta);
+  },
+};
 
 // Initialize Sentry
 Sentry.init({
