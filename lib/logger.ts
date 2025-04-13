@@ -27,7 +27,6 @@ Sentry.init({
   tracesSampleRate: 1.0,
   integrations: [
     new Sentry.Integrations.Http({ tracing: true }),
-    new Sentry.Integrations.Express(),
   ],
 });
 
