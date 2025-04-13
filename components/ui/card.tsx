@@ -1,30 +1,26 @@
-import { ReactNode, HTMLAttributes } from 'react';
-import clsx from 'clsx';
+import { cn } from "@/lib/utils";
+import { HTMLAttributes } from "react";
 
-interface CardProps {
-  children: ReactNode;
-  className?: string;
-  hover?: boolean;
-  animate?: boolean;
+interface CardProps extends HTMLAttributes<HTMLDivElement> {
+  children: React.ReactNode;
 }
 
-export default function Card({ children, className, hover = true, animate = false }: CardProps) {
-  const classes = clsx(
-    'bg-white rounded-2xl shadow-card p-6',
-    hover && 'transition-all duration-300 hover:shadow-card-hover',
-    animate && 'animate-fade-in',
-    className
-  );
-
+export default function Card({ children, className, ...props }: CardProps) {
   return (
-    <div className={classes}>
+    <div
+      className={cn(
+        "rounded-lg border bg-card text-card-foreground shadow-sm",
+        className
+      )}
+      {...props}
+    >
       {children}
     </div>
   );
 }
 
 interface CardHeaderProps extends HTMLAttributes<HTMLDivElement> {
-  children: ReactNode;
+  children: React.ReactNode;
   className?: string;
 }
 
