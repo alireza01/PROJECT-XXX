@@ -37,10 +37,8 @@ yarn-error.log*
 next-env.d.ts
 
 # IDE
-.idea/
-.vscode/
-*.swp
-*.swo
+.idea
+.vscode
 
 # OS generated files
 .DS_Store
@@ -132,3 +130,8 @@ dist
 /prisma/migrations/
 /prisma/dev.db
 /prisma/dev.db-journal
+
+# config files with secrets
+.env.example
+next.config.js
+vercel.json
