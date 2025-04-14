@@ -7,17 +7,17 @@ export async function GET() {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.isAdmin) {
-      return new NextResponse('Unauthorized', { status: 401 });
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
     }
 
     const apiKey = await prisma.apiKey.findFirst({
       where: { isActive: true },
     });
 
-    return NextResponse.json({ apiKey: apiKey?.key || null });
+    return new Response(JSON.stringify({ apiKey: apiKey?.key || null }));
   } catch (error) {
     console.error('Error fetching API key:', error);
-    return new NextResponse('Internal Server Error', { status: 500 });
+    return new Response(JSON.stringify({ error: 'Internal Server Error' }), { status: 500 });
   }
 }
 
@@ -25,13 +25,13 @@ export async function POST(request: Request) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.isAdmin) {
-      return new NextResponse('Unauthorized', { status: 401 });
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
     }
 
     const { apiKey } = await request.json();
 
     if (!apiKey) {
-      return new NextResponse('API key is required', { status: 400 });
+      return new Response(JSON.stringify({ error: 'API key is required' }), { status: 400 });
     }
 
     // Deactivate all existing API keys
@@ -48,9 +48,9 @@ export async function POST(request: Request) {
       },
     });
 
-    return NextResponse.json({ success: true });
+    return new Response(JSON.stringify({ success: true }));
   } catch (error) {
     console.error('Error saving API key:', error);
-    return new NextResponse('Internal Server Error', { status: 500 });
+    return new Response(JSON.stringify({ error: 'Internal Server Error' }), { status: 500 });
   }
 } 

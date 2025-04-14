@@ -1,7 +1,7 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { ApiKeyManager } from './api-key-manager';
 import { getServerSession } from 'next-auth';
-import { authConfig } from '@/lib/auth';
+import { authOptions } from '@/lib/auth';
 import { supabase } from '@/lib/supabase';
 import { logError, logInfo } from '@/lib/logger';
 
@@ -32,6 +32,7 @@ export class TranslationService {
   private readonly MAX_RETRIES = 3;
 
   private constructor() {
+    // @ts-ignore - We know this is safe because ApiKeyManager is a singleton
     this.apiKeyManager = ApiKeyManager.getInstance();
   }
 
@@ -94,7 +95,7 @@ export class TranslationService {
     let lastUsedKey: string | null = null;
 
     // Get the current user's ID
-    const session = await getServerSession(authConfig);
+    const session = await getServerSession(authOptions);
     const userId = session?.user?.id || null;
 
     // Try up to MAX_RETRIES times with different API keys

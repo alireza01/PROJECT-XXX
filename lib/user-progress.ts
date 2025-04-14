@@ -29,8 +29,14 @@ export async function updateReadingProgress(
 
 export async function getUserBookmarks(userId: string, bookId: string) {
   try {
-    const bookmarks = await supabase.from('bookmark').select('*').eq('user_id', userId).eq('book_id', bookId)
-    return bookmarks
+    const { data, error } = await supabase
+      .from('bookmarks')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('book_id', bookId)
+    
+    if (error) throw error
+    return data || []
   } catch (error) {
     console.error("Error fetching bookmarks:", error)
     throw error
@@ -40,18 +46,24 @@ export async function getUserBookmarks(userId: string, bookId: string) {
 export async function addBookmark(
   userId: string,
   bookId: string,
-  pageId: string,
+  pageNumber: string | number,
   note?: string
 ) {
   try {
-    const bookmark = await supabase.from('bookmark').insert({
-      user_id: userId,
-      book_id: bookId,
-      page_id: pageId,
-      note: note,
-      created_at: new Date().toISOString()
-    }).select().single()
-    return bookmark
+    const { data, error } = await supabase
+      .from('bookmarks')
+      .insert({
+        user_id: userId,
+        book_id: bookId,
+        page_number: typeof pageNumber === 'number' ? pageNumber.toString() : pageNumber,
+        note: note,
+        created_at: new Date().toISOString()
+      })
+      .select()
+      .single()
+
+    if (error) throw error
+    return data
   } catch (error) {
     console.error("Error adding bookmark:", error)
     throw error

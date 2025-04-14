@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { toast } from 'sonner';
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { createBrowserClient } from '@supabase/ssr';
 
 const settingsSchema = z.object({
   siteName: z.string().min(1, 'نام سایت الزامی است'),
@@ -31,7 +31,10 @@ interface SettingsFormProps {
 
 export function SettingsForm({ initialSettings }: SettingsFormProps) {
   const [isLoading, setIsLoading] = useState(false);
-  const supabase = createClientComponentClient();
+  const supabase = createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
 
   const {
     register,

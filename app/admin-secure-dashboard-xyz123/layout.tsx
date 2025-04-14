@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/sidebar"
 import { redirect } from "next/navigation"
 import { getServerSession } from "next-auth"
-import { authConfig } from "@/lib/auth"
+import { authOptions } from "@/lib/auth"
 import { AdminNav } from "@/components/admin/admin-nav"
 
 import { useState } from "react"
@@ -52,10 +52,10 @@ export default async function AdminLayout({
 }: {
   children: React.ReactNode
 }) {
-  const session = await getServerSession(authConfig)
+  const session = await getServerSession(authOptions)
 
-  if (!session?.user || session.user.role !== "admin") {
-    redirect("/")
+  if (!session?.user?.isAdmin) {
+    redirect('/')
   }
 
   const [isCollapsibleOpen, setIsCollapsibleOpen] = useState(true)

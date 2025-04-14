@@ -2,7 +2,12 @@ import * as Sentry from '@sentry/nextjs';
 import { supabase } from './supabase';
 
 // Error types
-export type ErrorContext = Record<string, any>;
+export interface ErrorContext {
+  service?: string;
+  operation?: string;
+  [key: string]: any;
+}
+
 export type ErrorSeverity = 'error' | 'warning' | 'info';
 export type ErrorCategory = 'database' | 'api' | 'auth' | 'validation' | 'performance' | 'other';
 
@@ -83,34 +88,36 @@ export const handleSupabaseResponse = <T>(response: { data: T | null; error: any
   return response.data;
 };
 
-// Track errors with context
-export const trackError = (error: AppError, context?: ErrorContext) => {
+// Consolidated trackError function
+export const trackError = (error: Error | AppError, context?: ErrorContext) => {
   try {
+    const appError = error as AppError;
+    
     // Add breadcrumb for error tracking
     Sentry.addBreadcrumb({
-      category: error.category || 'error',
+      category: appError.category || 'error',
       message: error.message,
-      level: error.severity || 'error',
-      data: { ...error.context, ...context },
+      level: appError.severity || 'error',
+      data: { ...appError.context, ...context },
     });
 
     // Capture error in Sentry
     Sentry.captureException(error, {
       contexts: {
-        error: { ...error.context, ...context },
+        error: { ...appError.context, ...context },
       },
       tags: {
-        category: error.category,
-        severity: error.severity,
+        category: appError.category,
+        severity: appError.severity,
       },
     });
 
     // Log to console
-    logger.error(error.message, { ...error.context, ...context });
+    logger.error(error.message, { ...appError.context, ...context });
 
     // Save to database if it's a critical error
-    if (error.severity === 'error') {
-      saveErrorToDatabase(error, context).catch(dbError => {
+    if (appError.severity === 'error') {
+      saveErrorToDatabase(appError, context).catch(dbError => {
         logger.error('Failed to save error to database', { error: dbError });
       });
     }
@@ -230,23 +237,6 @@ export const errorHandler = (err: AppError, req: any, res: any, next: any) => {
       : err.message,
   });
 };
-
-export interface ErrorContext {
-  service: string;
-  operation: string;
-  [key: string]: any;
-}
-
-export function trackError(error: Error, context: ErrorContext): void {
-  console.error('Error occurred:', {
-    error: error.message,
-    stack: error.stack,
-    ...context,
-  });
-  
-  // TODO: Implement proper error tracking service integration
-  // This could be Sentry, LogRocket, or any other error tracking service
-}
 
 export function handleError<T>(error: Error, context: ErrorContext): T | null {
   trackError(error, context);

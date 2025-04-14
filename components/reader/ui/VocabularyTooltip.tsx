@@ -6,14 +6,14 @@ import { X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { cn } from "@/lib/utils"
-import { VocabularyLevel } from "@/types"
+import { Level } from "@/lib/prisma-client"
 
 interface VocabularyTooltipProps {
   word: string
-  level: VocabularyLevel
+  level: Level
   position: { x: number; y: number }
   onClose: () => void
-  userLevel: VocabularyLevel
+  userLevel: Level
   className?: string
 }
 
@@ -25,32 +25,26 @@ export function VocabularyTooltip({
   userLevel,
   className
 }: VocabularyTooltipProps) {
-  const getLevelColor = (level: VocabularyLevel) => {
+  const getLevelColor = (level: Level) => {
     switch (level) {
       case "BEGINNER":
-      case "beginner":
         return "text-green-600 dark:text-green-400"
       case "INTERMEDIATE":
-      case "intermediate":
         return "text-yellow-600 dark:text-yellow-400"
       case "ADVANCED":
-      case "advanced":
         return "text-red-600 dark:text-red-400"
       default:
         return ""
     }
   }
 
-  const getLevelBadge = (level: VocabularyLevel) => {
+  const getLevelBadge = (level: Level) => {
     switch (level) {
       case "BEGINNER":
-      case "beginner":
         return "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200"
       case "INTERMEDIATE":
-      case "intermediate":
         return "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200"
       case "ADVANCED":
-      case "advanced":
         return "bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200"
       default:
         return ""
@@ -58,10 +52,10 @@ export function VocabularyTooltip({
   }
 
   const isAboveUserLevel = 
-    ((userLevel === "BEGINNER" || userLevel === "beginner") && 
-     (level !== "BEGINNER" && level !== "beginner")) ||
-    ((userLevel === "INTERMEDIATE" || userLevel === "intermediate") && 
-     (level === "ADVANCED" || level === "advanced"))
+    ((userLevel === "BEGINNER" && 
+     (level !== "BEGINNER")) ||
+    ((userLevel === "INTERMEDIATE") && 
+     (level === "ADVANCED")))
 
   return (
     <AnimatePresence>

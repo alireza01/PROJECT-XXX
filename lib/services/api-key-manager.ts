@@ -9,7 +9,7 @@ interface ApiKey {
 }
 
 export class ApiKeyManager extends BaseService<ApiKey> {
-  private constructor(config?: ServiceConfig) {
+  protected constructor(config?: ServiceConfig) {
     super('ApiKeyManager', {
       ...config,
       tableName: 'gemini_api_keys',
@@ -24,6 +24,10 @@ export class ApiKeyManager extends BaseService<ApiKey> {
     config?: ServiceConfig
   ): T {
     return super.getInstance<T>(config);
+  }
+
+  public static getInstanceWithoutConfig(): ApiKeyManager {
+    return new ApiKeyManager();
   }
 
   public async getRandomApiKey(userId: string | null = null, excludeKey?: string): Promise<string> {

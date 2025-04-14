@@ -21,6 +21,7 @@ import { Upload, X, Plus, Save, ArrowLeft, ImageIcon, Loader2 } from "lucide-rea
 import { addBook, uploadBookCover, uploadBookFile, addBookTags } from "@/actions/books"
 import { useToast } from "@/hooks/use-toast"
 import { supabase } from '@/lib/supabase'
+import type { Book } from '@/types/book'
 
 // Define ReadingLevel type locally based on schema
 type ReadingLevel = 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED';
@@ -33,12 +34,12 @@ const formSchema = z.object({
   level: z.enum(["BEGINNER", "INTERMEDIATE", "ADVANCED"]),
   content: z.string().min(1, "محتوا الزامی است"),
   description: z.string().min(10, "توضیحات باید حداقل 10 کاراکتر باشد").optional().or(z.literal('')),
-  publishDate: z.string().optional(),
-  pageCount: z.coerce.number().int().positive().optional(),
+  publish_date: z.string().optional(),
+  page_count: z.coerce.number().int().positive().optional(),
   price: z.coerce.number().nonnegative().optional(),
   discount: z.coerce.number().int().min(0).max(100).optional(),
-  metaTitle: z.string().optional(),
-  metaDescription: z.string().optional(),
+  meta_title: z.string().optional(),
+  meta_description: z.string().optional(),
   tags: z.array(z.string()).default([]),
 });
 
@@ -104,12 +105,12 @@ export function BookForm({ initialData }: BookFormProps) {
       content: initialData?.content || '',
       level: 'BEGINNER',
       description: '',
-      publishDate: '',
-      pageCount: undefined,
+      publish_date: '',
+      page_count: undefined,
       price: undefined,
       discount: 0,
-      metaTitle: '',
-      metaDescription: '',
+      meta_title: '',
+      meta_description: '',
       tags: [],
     },
   });
@@ -203,10 +204,22 @@ export function BookForm({ initialData }: BookFormProps) {
         fileUrl = await uploadBookFile(bookFile)
       }
 
+      // Ensure required fields are present
       const bookData = {
-        ...values,
-        cover_url: coverUrl,
-        file_url: fileUrl,
+        title: values.title,
+        author: values.author,
+        category: values.category,
+        level: values.level,
+        content: values.content,
+        description: values.description || undefined,
+        publish_date: values.publish_date || undefined,
+        page_count: values.page_count || undefined,
+        price: values.price || undefined,
+        discount: values.discount || undefined,
+        meta_title: values.meta_title || undefined,
+        meta_description: values.meta_description || undefined,
+        cover_url: coverUrl || undefined,
+        file_url: fileUrl || undefined,
       }
 
       const book = await addBook(bookData)
@@ -267,8 +280,8 @@ export function BookForm({ initialData }: BookFormProps) {
                     </div>
                      {/* Publish Date & Page Count */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                       <FormField control={form.control} name="publishDate" render={({ field }) => (<FormItem><FormLabel>تاریخ انتشار (اختیاری)</FormLabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                       <FormField control={form.control} name="pageCount" render={({ field }) => (<FormItem><FormLabel>تعداد صفحات (اختیاری)</FormLabel><FormControl><Input type="number" placeholder="مثال: 320" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
+                       <FormField control={form.control} name="publish_date" render={({ field }) => (<FormItem><FormLabel>تاریخ انتشار (اختیاری)</FormLabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                       <FormField control={form.control} name="page_count" render={({ field }) => (<FormItem><FormLabel>تعداد صفحات (اختیاری)</FormLabel><FormControl><Input type="number" placeholder="مثال: 320" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
                     </div>
                     {/* Description */}
                     <FormField control={form.control} name="description" render={({ field }) => (<FormItem><FormLabel>توضیحات کتاب</FormLabel><FormControl><Textarea placeholder="خلاصه‌ای از کتاب..." className="min-h-32" {...field} /></FormControl><FormMessage /></FormItem>)} />
@@ -349,8 +362,8 @@ export function BookForm({ initialData }: BookFormProps) {
             <Card>
               <CardHeader><CardTitle>متادیتا (اختیاری)</CardTitle><CardDescription>اطلاعات SEO برای بهبود دیده شدن در موتورهای جستجو.</CardDescription></CardHeader>
               <CardContent className="space-y-4">
-                <FormField control={form.control} name="metaTitle" render={({ field }) => (<FormItem><FormLabel>عنوان متا</FormLabel><FormControl><Input placeholder="عنوان صفحه در نتایج جستجو" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                <FormField control={form.control} name="metaDescription" render={({ field }) => (<FormItem><FormLabel>توضیحات متا</FormLabel><FormControl><Textarea placeholder="توضیح کوتاه برای نتایج جستجو" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                <FormField control={form.control} name="meta_title" render={({ field }) => (<FormItem><FormLabel>عنوان متا</FormLabel><FormControl><Input placeholder="عنوان صفحه در نتایج جستجو" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                <FormField control={form.control} name="meta_description" render={({ field }) => (<FormItem><FormLabel>توضیحات متا</FormLabel><FormControl><Textarea placeholder="توضیح کوتاه برای نتایج جستجو" {...field} /></FormControl><FormMessage /></FormItem>)} />
               </CardContent>
             </Card>
           </TabsContent>

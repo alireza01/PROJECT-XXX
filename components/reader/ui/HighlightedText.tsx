@@ -3,19 +3,19 @@
 import React from "react"
 import { motion } from "framer-motion"
 import { cn } from "@/lib/utils"
-import { VocabularyLevel } from "@/types/vocabulary"
+import { Level } from "@/lib/prisma-client"
 
 interface WordPosition {
   word: string
   start: number
   end: number
-  level: VocabularyLevel
+  level: Level
 }
 
 interface HighlightedTextProps {
   content: string
   wordPositions: WordPosition[]
-  userLevel: VocabularyLevel
+  userLevel: Level
   className?: string
 }
 
@@ -25,13 +25,13 @@ export function HighlightedText({
   userLevel,
   className
 }: HighlightedTextProps) {
-  const getWordLevelColor = (level: VocabularyLevel) => {
+  const getWordLevelColor = (level: Level) => {
     switch (level) {
-      case "beginner":
+      case "BEGINNER":
         return "bg-green-100 dark:bg-green-900/30"
-      case "intermediate":
+      case "INTERMEDIATE":
         return "bg-yellow-100 dark:bg-yellow-900/30"
-      case "advanced":
+      case "ADVANCED":
         return "bg-red-100 dark:bg-red-900/30"
       default:
         return ""
@@ -49,30 +49,23 @@ export function HighlightedText({
       if (pos.start > lastIndex) {
         elements.push(
           <span key={`text-${index}`}>
-            {content.slice(lastIndex, pos.start)}
+            {content.substring(lastIndex, pos.start)}
           </span>
         )
       }
 
       // Add the highlighted word
-      const word = content.slice(pos.start, pos.end)
-      const isAboveUserLevel = 
-        ((userLevel === "beginner") && 
-         (pos.level !== "beginner")) ||
-        ((userLevel === "intermediate") && 
-         (pos.level === "advanced"))
-
       elements.push(
         <motion.span
           key={`word-${index}`}
           className={cn(
-            "cursor-pointer transition-colors",
-            isAboveUserLevel && getWordLevelColor(pos.level)
+            "cursor-pointer hover:opacity-80 transition-opacity",
+            getWordLevelColor(pos.level)
           )}
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
         >
-          {word}
+          {content.substring(pos.start, pos.end)}
         </motion.span>
       )
 
@@ -82,8 +75,8 @@ export function HighlightedText({
     // Add remaining text
     if (lastIndex < content.length) {
       elements.push(
-        <span key="text-end">
-          {content.slice(lastIndex)}
+        <span key="remaining-text">
+          {content.substring(lastIndex)}
         </span>
       )
     }
@@ -92,7 +85,7 @@ export function HighlightedText({
   }
 
   return (
-    <div className={cn("leading-relaxed", className)}>
+    <div className={cn("text-lg leading-relaxed", className)}>
       {renderContent()}
     </div>
   )

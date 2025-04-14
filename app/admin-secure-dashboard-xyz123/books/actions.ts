@@ -3,11 +3,11 @@
 import { revalidatePath } from "next/cache"
 import { prisma } from "@/lib/prisma-client"
 import { getServerSession } from "next-auth"
-import { authConfig } from "@/lib/auth"
+import { authOptions } from "@/lib/auth"
 import { redirect } from "next/navigation"
 
 export async function createBook(formData: FormData) {
-  const session = await getServerSession(authConfig)
+  const session = await getServerSession(authOptions)
 
   if (!session?.user || session.user.role !== "admin") {
     redirect("/")
@@ -65,7 +65,7 @@ export async function updateBook(id: string, data: {
   description: string
   content: string
 }) {
-  const session = await getServerSession(authConfig)
+  const session = await getServerSession(authOptions)
 
   if (!session?.user || session.user.role !== "admin") {
     redirect("/")
@@ -101,7 +101,7 @@ export async function updateBook(id: string, data: {
 }
 
 export async function deleteBook(id: string) {
-  const session = await getServerSession(authConfig)
+  const session = await getServerSession(authOptions)
 
   if (!session?.user || session.user.role !== "admin") {
     redirect("/")
@@ -121,7 +121,7 @@ export async function deleteBook(id: string) {
 }
 
 export async function getBook(id: string) {
-  const session = await getServerSession(authConfig)
+  const session = await getServerSession(authOptions)
 
   if (!session?.user || session.user.role !== "admin") {
     redirect("/")

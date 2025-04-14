@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation"
 import { motion, AnimatePresence } from "framer-motion"
 import { useSwipeable } from 'react-swipeable'
 import { cn } from '@/lib/utils'
-import { VocabularyLevel } from '@/types'
+import { Level } from '@/lib/prisma-client'
 import { useKeyboardShortcuts } from '@/hooks/use-keyboard-shortcuts'
 import { supabase } from "@/lib/supabase/client"
 import { updateReadingProgress, getUserBookmarks, addBookmark } from '@/lib/user-progress'
@@ -53,7 +53,7 @@ interface WordPosition {
   word: string;
   start: number;
   end: number;
-  level: VocabularyLevel;
+  level: Level;
 }
 
 interface BookReaderProps {
@@ -77,7 +77,7 @@ interface BookReaderProps {
   bookId: string
   initialPage: number
   totalPages: number
-  userLevel: VocabularyLevel
+  userLevel: Level
   pageId: string
 }
 
@@ -175,7 +175,9 @@ export function BookReader({
   const checkBookmark = async () => {
     if (!userId) return
     const userBookmarks = await getUserBookmarks(userId, bookId)
-    setIsBookmarked(userBookmarks.some((b: Bookmark) => b.pageNumber === currentPage))
+    if (userBookmarks && Array.isArray(userBookmarks)) {
+      setIsBookmarked(userBookmarks.some((b: Bookmark) => b.pageNumber === currentPage))
+    }
   }
 
   const checkLike = async () => {
@@ -191,7 +193,7 @@ export function BookReader({
 
   const handleBookmark = async () => {
     if (!userId) return
-    await addBookmark(userId, bookId, currentPage.toString())
+    await addBookmark(userId, bookId, currentPage)
     setIsBookmarked(!isBookmarked)
     await loadBookmarks()
   }
@@ -233,12 +235,14 @@ export function BookReader({
   const loadBookmarks = async () => {
     if (!userId) return
     const userBookmarks = await getUserBookmarks(userId, bookId)
-    setBookmarks(userBookmarks)
+    if (userBookmarks && Array.isArray(userBookmarks)) {
+      setBookmarks(userBookmarks)
+    }
   }
 
   const saveProgress = async () => {
     if (!userId) return
-    await updateReadingProgress(userId, bookId, currentPage, totalPages)
+    await updateReadingProgress(userId, bookId, currentPage.toString(), totalPages)
     setReadingProgress((currentPage / totalPages) * 100)
   }
 

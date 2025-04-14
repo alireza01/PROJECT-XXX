@@ -21,16 +21,18 @@ export function ScreenReader({
   className = "sr-only",
   ...props
 }: ScreenReaderProps) {
-  return React.createElement(
-    Component,
-    {
-      role: typeof role === 'string' ? role : 'status',
-      "aria-label": ariaLabel,
-      "aria-live": ariaLive,
-      "aria-atomic": ariaAtomic,
-      className,
-      ...props
-    },
-    children
+  const ComponentElement = Component as unknown as React.ComponentType<React.HTMLAttributes<HTMLElement>>
+  
+  return (
+    <ComponentElement
+      role={role}
+      aria-label={ariaLabel}
+      aria-live={ariaLive}
+      aria-atomic={ariaAtomic}
+      className={className}
+      {...props}
+    >
+      {children}
+    </ComponentElement>
   )
 } 

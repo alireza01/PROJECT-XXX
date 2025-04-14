@@ -5,7 +5,7 @@ import { motion } from "framer-motion"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
 import { cn } from "@/lib/utils"
-import { VocabularyStats as VocabularyStatsType } from "@/types"
+import { VocabularyStats as VocabularyStatsType } from "@/types/index"
 
 interface VocabularyStatsProps extends VocabularyStatsType {
   className?: string
@@ -49,19 +49,16 @@ export function VocabularyStats({
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <span className="text-sm font-medium">Current Level</span>
-            <span className="text-sm font-semibold capitalize">{currentLevel.toLowerCase()}</span>
+            <span className="text-sm font-medium">{currentLevel}</span>
           </div>
           <div className="space-y-4">
-            {stats.map(({ label, value, percentage, color }) => (
-              <div key={label}>
-                <div className="flex items-center justify-between mb-1">
-                  <span className={cn("text-xs", `text-${color}-600`)}>{label}</span>
-                  <span className="text-xs text-muted-foreground">{value}</span>
+            {stats.map((stat) => (
+              <div key={stat.label} className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium">{stat.label}</span>
+                  <span className="text-sm font-medium">{stat.value}</span>
                 </div>
-                <Progress 
-                  value={percentage} 
-                  className={cn("h-2", `[&>div]:bg-${color}-500`)}
-                />
+                <Progress value={stat.percentage} className={`bg-${stat.color}-100`} />
               </div>
             ))}
           </div>
