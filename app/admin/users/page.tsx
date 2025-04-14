@@ -1,3 +1,5 @@
+"use client"
+
 import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { Search, Filter, MoreVertical, UserPlus, Mail, Shield } from 'lucide-react'

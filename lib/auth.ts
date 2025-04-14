@@ -10,6 +10,7 @@ import { z } from "zod"
 import { supabase } from "@/lib/supabase/client"
 import { cookies } from "next/headers"
 import { NextResponse } from "next/server"
+import { authOptions } from "@/app/api/auth/[...nextauth]/route"
 
 // Define custom error types
 export class AuthError extends Error {
@@ -372,3 +373,8 @@ export async function getUserById(userId: string) {
     throw error
   }
 }
+
+export const auth = async () => {
+  const session = await getServerSession(authOptions);
+  return session;
+};

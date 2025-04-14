@@ -6,32 +6,27 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { toast } from 'sonner';
-import { createServerActionClient } from '@supabase/auth-helpers-nextjs';
-import { cookies } from 'next/headers';
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 
 const settingsSchema = z.object({
   siteName: z.string().min(1, 'نام سایت الزامی است'),
-  siteDescription: z.string().min(1, 'توضیحات سایت الزامی است'),
-  contactEmail: z.string().email('ایمیل معتبر نیست'),
-  socialLinks: z.object({
-    twitter: z.string().url().optional(),
-    facebook: z.string().url().optional(),
-    instagram: z.string().url().optional(),
-  }).optional(),
+  siteDescription: z.string().optional(),
+  contactEmail: z.string().email('ایمیل معتبر نیست').optional(),
+  socialMedia: z.object({
+    twitter: z.string().url('آدرس معتبر نیست').optional(),
+    instagram: z.string().url('آدرس معتبر نیست').optional(),
+    telegram: z.string().url('آدرس معتبر نیست').optional(),
+  }),
 });
 
 type SettingsFormData = z.infer<typeof settingsSchema>;
 
-interface SettingsFormProps {
-  initialSettings?: Partial<SettingsFormData>;
-}
-
-export function SettingsForm({ initialSettings }: SettingsFormProps) {
+export function SettingsForm() {
   const [isLoading, setIsLoading] = useState(false);
+  const supabase = createClientComponentClient();
 
   const {
     register,
@@ -39,22 +34,20 @@ export function SettingsForm({ initialSettings }: SettingsFormProps) {
     formState: { errors },
   } = useForm<SettingsFormData>({
     resolver: zodResolver(settingsSchema),
-    defaultValues: initialSettings,
   });
 
   const onSubmit = async (data: SettingsFormData) => {
+    setIsLoading(true);
     try {
-      setIsLoading(true);
-      const supabase = createServerActionClient({ cookies });
-      
       const { error } = await supabase
         .from('settings')
-        .upsert([data]);
+        .upsert({ id: 1, ...data });
 
       if (error) throw error;
       
       toast.success('تنظیمات با موفقیت ذخیره شد');
     } catch (error) {
+      console.error('Error saving settings:', error);
       toast.error('خطا در ذخیره تنظیمات');
     } finally {
       setIsLoading(false);
@@ -63,84 +56,93 @@ export function SettingsForm({ initialSettings }: SettingsFormProps) {
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+      <div>
+        <Label htmlFor="siteName">نام سایت</Label>
+        <Input
+          id="siteName"
+          {...register('siteName')}
+          placeholder="نام سایت خود را وارد کنید"
+        />
+        {errors.siteName && (
+          <Alert variant="destructive" className="mt-2">
+            <AlertDescription>{errors.siteName.message}</AlertDescription>
+          </Alert>
+        )}
+      </div>
+
+      <div>
+        <Label htmlFor="siteDescription">توضیحات سایت</Label>
+        <Input
+          id="siteDescription"
+          {...register('siteDescription')}
+          placeholder="توضیحات سایت خود را وارد کنید"
+        />
+      </div>
+
+      <div>
+        <Label htmlFor="contactEmail">ایمیل تماس</Label>
+        <Input
+          id="contactEmail"
+          type="email"
+          {...register('contactEmail')}
+          placeholder="ایمیل تماس خود را وارد کنید"
+        />
+        {errors.contactEmail && (
+          <Alert variant="destructive" className="mt-2">
+            <AlertDescription>{errors.contactEmail.message}</AlertDescription>
+          </Alert>
+        )}
+      </div>
+
       <div className="space-y-4">
-        <div className="space-y-2">
-          <Label htmlFor="siteName">نام سایت</Label>
+        <h3 className="text-lg font-medium">شبکه‌های اجتماعی</h3>
+
+        <div>
+          <Label htmlFor="twitter">توییتر</Label>
           <Input
-            id="siteName"
-            {...register('siteName')}
+            id="twitter"
+            {...register('socialMedia.twitter')}
+            placeholder="لینک توییتر"
           />
-          {errors.siteName && (
-            <Alert variant="destructive">
-              <AlertDescription>{errors.siteName.message}</AlertDescription>
+          {errors.socialMedia?.twitter && (
+            <Alert variant="destructive" className="mt-2">
+              <AlertDescription>
+                {errors.socialMedia.twitter.message}
+              </AlertDescription>
             </Alert>
           )}
         </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="siteDescription">توضیحات سایت</Label>
-          <Textarea
-            id="siteDescription"
-            {...register('siteDescription')}
-          />
-          {errors.siteDescription && (
-            <Alert variant="destructive">
-              <AlertDescription>{errors.siteDescription.message}</AlertDescription>
-            </Alert>
-          )}
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="contactEmail">ایمیل تماس</Label>
+        <div>
+          <Label htmlFor="instagram">اینستاگرام</Label>
           <Input
-            id="contactEmail"
-            type="email"
-            {...register('contactEmail')}
+            id="instagram"
+            {...register('socialMedia.instagram')}
+            placeholder="لینک اینستاگرام"
           />
-          {errors.contactEmail && (
-            <Alert variant="destructive">
-              <AlertDescription>{errors.contactEmail.message}</AlertDescription>
+          {errors.socialMedia?.instagram && (
+            <Alert variant="destructive" className="mt-2">
+              <AlertDescription>
+                {errors.socialMedia.instagram.message}
+              </AlertDescription>
             </Alert>
           )}
         </div>
 
-        <div className="space-y-2">
-          <Label>شبکه‌های اجتماعی</Label>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <Input
-                placeholder="Twitter"
-                {...register('socialLinks.twitter')}
-              />
-              {errors.socialLinks?.twitter && (
-                <Alert variant="destructive">
-                  <AlertDescription>{errors.socialLinks.twitter.message}</AlertDescription>
-                </Alert>
-              )}
-            </div>
-            <div>
-              <Input
-                placeholder="Facebook"
-                {...register('socialLinks.facebook')}
-              />
-              {errors.socialLinks?.facebook && (
-                <Alert variant="destructive">
-                  <AlertDescription>{errors.socialLinks.facebook.message}</AlertDescription>
-                </Alert>
-              )}
-            </div>
-            <div>
-              <Input
-                placeholder="Instagram"
-                {...register('socialLinks.instagram')}
-              />
-              {errors.socialLinks?.instagram && (
-                <Alert variant="destructive">
-                  <AlertDescription>{errors.socialLinks.instagram.message}</AlertDescription>
-                </Alert>
-              )}
-            </div>
-          </div>
+        <div>
+          <Label htmlFor="telegram">تلگرام</Label>
+          <Input
+            id="telegram"
+            {...register('socialMedia.telegram')}
+            placeholder="لینک تلگرام"
+          />
+          {errors.socialMedia?.telegram && (
+            <Alert variant="destructive" className="mt-2">
+              <AlertDescription>
+                {errors.socialMedia.telegram.message}
+              </AlertDescription>
+            </Alert>
+          )}
         </div>
       </div>
 
