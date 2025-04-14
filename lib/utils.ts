@@ -7,8 +7,8 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 export function processVocabulary(text: string, level: 'beginner' | 'intermediate' | 'advanced'): string[] {
-  const words = text.match(/\b\w+\b/g) || []
-  const filteredWords = words.filter(word => {
+  const words: string[] = text.match(/\b\w+\b/g) || []
+  const filteredWords = words.filter((word: string) => {
     const length = word.length
     switch (level) {
       case 'beginner':

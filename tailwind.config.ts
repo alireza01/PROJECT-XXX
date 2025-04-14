@@ -3,10 +3,10 @@ import type { Config } from "tailwindcss"
 const config = {
   darkMode: ["class"],
   content: [
-    './pages/**/*.{ts,tsx}',
-    './components/**/*.{ts,tsx}',
-    './app/**/*.{ts,tsx}',
-    './src/**/*.{ts,tsx}',
+    "./pages/**/*.{ts,tsx}",
+    "./components/**/*.{ts,tsx}",
+    "./app/**/*.{ts,tsx}",
+    "./src/**/*.{ts,tsx}",
   ],
   prefix: "",
   theme: {
@@ -19,6 +19,19 @@ const config = {
     },
     extend: {
       colors: {
+        gold: {
+          50: "#fdf9ed",
+          100: "#faf3db",
+          200: "#f5e7b7",
+          300: "#f0db93",
+          400: "#ebcf6f",
+          500: "#e6c34b",
+          600: "#e1b727",
+          700: "#dcab03",
+          800: "#b08902",
+          900: "#846702",
+          950: "#584501",
+        },
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",
@@ -57,6 +70,7 @@ const config = {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
+        "3xl": "1.5rem",
       },
       keyframes: {
         "accordion-down": {
