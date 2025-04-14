@@ -1,6 +1,6 @@
 import { GoogleGenerativeAI } from "@google/generative-ai"
 import { getServerSession } from "next-auth"
-import { authConfig } from "./auth"
+import { authOptions } from "./auth-options"
 import { createClient } from "@supabase/supabase-js"
 
 if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
@@ -61,12 +61,12 @@ export async function detectLanguage(text: string) {
   }
 }
 
-export default async function getTranslation(
+export async function getTranslation(
   text: string,
   targetLanguage: string
 ): Promise<TranslationResult> {
   try {
-    const session = await getServerSession(authConfig)
+    const session = await getServerSession(authOptions)
     if (!session?.user) {
       return { text: "", error: "Unauthorized" }
     }
