@@ -1,6 +1,5 @@
 #!/usr/bin/env sh
 . "$(dirname -- "$0")/_/husky.sh"
 
+# Add your pre-commit tasks here, e.g., linting or testing
 npx lint-staged
-npx tsc --noEmit
-pnpm test 

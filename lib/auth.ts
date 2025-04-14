@@ -7,12 +7,11 @@ import CredentialsProvider from "next-auth/providers/credentials"
 import { z } from "zod"
 import { DefaultSession } from "next-auth"
 import { JWT } from "next-auth/jwt"
-import { User } from "@prisma/client"
+import { User as PrismaUser } from "@prisma/client" // Alias to avoid naming conflict
 import { supabase } from "@/lib/supabase/client"
 import { cookies } from "next/headers"
 import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth/next"
-import { authOptions } from "@/app/api/auth/[...nextauth]/route"
 
 // Define custom error types
 export class AuthError extends Error {
@@ -50,26 +49,32 @@ export type UserRole = typeof UserRole[keyof typeof UserRole]
 
 // Extend the default NextAuth types
 declare module "next-auth" {
-  interface Session {
-    user: {
-      id: string
-      role: UserRole
-      isAdmin: boolean
-    } & DefaultSession["user"]
+  // Augment the default User interface
+  interface User {
+    id: string; // Ensure id is string if overriding
+    role: UserRole;
+    isAdmin: boolean;
+    // Default properties (name, email, image) are usually handled by DefaultUser
   }
 
-  interface User {
-    id: string
-    role: UserRole
-    isAdmin: boolean
+  // Session user now automatically inherits the augmented User type
+  interface Session {
+    // Combine augmented User with DefaultSession user properties
+    // DefaultSession["user"] provides { name, email, image }
+    user: User & DefaultSession["user"];
   }
 }
 
 declare module "next-auth/jwt" {
+  // Ensure JWT interface also includes the custom fields
   interface JWT {
-    id: string
-    role: UserRole
-    isAdmin: boolean
+    id: string; // Add id here as well
+    role: UserRole;
+    isAdmin: boolean;
+    // Include other standard JWT fields if needed (name, email, picture)
+    name?: string | null;
+    email?: string | null;
+    picture?: string | null;
   }
 }
 
@@ -96,7 +101,7 @@ export const authConfig: NextAuthOptions = {
         email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" },
       },
-      async authorize(credentials) {
+      async authorize(credentials: Record<"email" | "password", string> | undefined) {
         try {
           // Validate credentials
           const result = credentialsSchema.safeParse(credentials)
@@ -147,13 +152,22 @@ export const authConfig: NextAuthOptions = {
     }),
   ],
   callbacks: {
-    async session({ session, user }) {
-      if (session.user) {
-        session.user.id = user.id
-        session.user.role = user.role
-        session.user.isAdmin = user.isAdmin
+    // Use token to populate session when using JWT strategy
+    async session({ session, token }) {
+      if (token && session.user) {
+        // Assign augmented properties from token to session.user
+        // TypeScript should now recognize these properties due to User augmentation
+        session.user.id = token.id;
+        session.user.role = token.role;
+        session.user.isAdmin = token.isAdmin;
+        // Default properties are already part of DefaultSession["user"]
+        // and should be handled by NextAuth or assigned in jwt callback if needed.
+        // Example: if name/email/picture are added to token in jwt callback:
+        // session.user.name = token.name;
+        // session.user.email = token.email;
+        // session.user.image = token.picture;
       }
-      return session
+      return session;
     },
     async jwt({ token, user }) {
       if (user) {
@@ -176,8 +190,9 @@ export const authConfig: NextAuthOptions = {
             email: user.email!,
             name: user.name!,
             image: user.image,
-            role: user.role,
-            isAdmin: false,
+            // Assign default role for new users, don't rely on potentially incomplete 'user' object
+            role: UserRole.USER,
+            isAdmin: false, // Default isAdmin status
           },
         })
       }
