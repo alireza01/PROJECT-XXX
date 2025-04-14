@@ -9,8 +9,8 @@ import { DefaultSession, DefaultUser } from "next-auth"
 import { JWT } from "next-auth/jwt"
 import { User as SupabaseUser } from '@supabase/supabase-js'
 import { getServerSession } from "next-auth/next"
-import { NextAuthOptions } from 'next-auth';
-import GoogleProvider from 'next-auth/providers/google';
+import { NextAuthOptions } from 'next-auth'
+import GoogleProvider from 'next-auth/providers/google'
 import { getSession } from 'next-auth/react'
 import { NextApiRequest, NextApiResponse } from 'next'
 
@@ -63,6 +63,7 @@ declare module "next-auth" {
       image: string | null;
       role: UserRole;
       isAdmin: boolean;
+      credits?: number;
     } & DefaultSession["user"]
   }
 }
@@ -147,7 +148,7 @@ export async function getUserById(userId: string) {
   return data
 }
 
-export const authOptions: NextAuthOptions = {
+export const authConfig: NextAuthOptions = {
   providers: [
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID!,
@@ -155,54 +156,48 @@ export const authOptions: NextAuthOptions = {
     }),
   ],
   callbacks: {
-    async signIn({ user, account, profile }) {
-      if (account?.provider === 'google') {
-        const { data: existingUser } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', user.id)
+    async session({ session }) {
+      if (session?.user?.email) {
+        const { data: user } = await supabase
+          .from("users")
+          .select("*")
+          .eq("email", session.user.email)
           .single()
 
-        if (!existingUser) {
-          await supabase.from('profiles').insert({
-            id: user.id,
-            email: user.email,
-            name: user.name,
-            image: user.image,
-            role: 'USER',
-            is_admin: false,
-            created_at: new Date().toISOString(),
-            last_login: new Date().toISOString(),
-          })
-        } else {
-          await supabase
-            .from('profiles')
-            .update({ last_login: new Date().toISOString() })
-            .eq('id', user.id)
-        }
-      }
-      return true
-    },
-    async session({ session, token }) {
-      if (session.user) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', token.sub)
-          .single()
-
-        if (profile) {
-          session.user.id = profile.id
-          session.user.role = profile.role
-          session.user.isAdmin = profile.is_admin
+        if (user) {
+          session.user.id = user.id
+          session.user.credits = user.credits
         }
       }
       return session
     },
+    async signIn({ user }) {
+      if (user.email) {
+        const { data: existingUser } = await supabase
+          .from("users")
+          .select("*")
+          .eq("email", user.email)
+          .single()
+
+        if (!existingUser) {
+          await supabase.from("users").insert([
+            {
+              email: user.email,
+              name: user.name,
+              credits: 10, // Initial credits
+            },
+          ])
+        }
+      }
+      return true
+    },
+  },
+  pages: {
+    signIn: "/auth/signin",
   },
 }
 
 export const getAuthSession = async () => {
-  const session = await getServerSession(authOptions)
+  const session = await getServerSession(authConfig)
   return session
 }

@@ -1,6 +1,27 @@
 import { GoogleGenerativeAI } from "@google/generative-ai"
+import { getServerSession } from "next-auth"
+import { authConfig } from "./auth"
+import { createClient } from "@supabase/supabase-js"
 
-const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY || "")
+if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+  throw new Error('Missing Supabase environment variables')
+}
+
+if (!process.env.GOOGLE_AI_API_KEY) {
+  throw new Error('Missing Google AI API key')
+}
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+)
+
+const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_API_KEY)
+
+interface TranslationResult {
+  text: string
+  error?: string
+}
 
 export async function translateText(text: string, targetLanguage: string) {
   try {
@@ -37,5 +58,47 @@ export async function detectLanguage(text: string) {
   } catch (error) {
     console.error("Language detection error:", error)
     throw new Error("Failed to detect language")
+  }
+}
+
+export default async function getTranslation(
+  text: string,
+  targetLanguage: string
+): Promise<TranslationResult> {
+  try {
+    const session = await getServerSession(authConfig)
+    if (!session?.user) {
+      return { text: "", error: "Unauthorized" }
+    }
+
+    // Check user credits
+    const { data: user } = await supabase
+      .from("users")
+      .select("credits")
+      .eq("id", session.user.id)
+      .single()
+
+    if (!user || user.credits <= 0) {
+      return { text: "", error: "Insufficient credits" }
+    }
+
+    // Deduct credit
+    await supabase
+      .from("users")
+      .update({ credits: user.credits - 1 })
+      .eq("id", session.user.id)
+
+    // Generate translation
+    const model = genAI.getGenerativeModel({ model: "gemini-pro" })
+    const prompt = `Translate the following text to ${targetLanguage}. Only return the translated text, nothing else:\n\n${text}`
+    
+    const result = await model.generateContent(prompt)
+    const response = await result.response
+    const translatedText = response.text()
+
+    return { text: translatedText }
+  } catch (error) {
+    console.error("Translation error:", error)
+    return { text: "", error: "Translation failed" }
   }
 } 
