@@ -8,8 +8,8 @@
     "start": "next start",
     "lint": "next lint",
     "postinstall": "prisma generate",
-    "check:all": "tsc --noEmit && next lint && next build",
-    "check:errors": "tsc --noEmit --pretty false && next lint --quiet && next build --no-lint"
+    "check:all": "node scripts/check-all.js",
+    "check:errors": "node scripts/check-all.js"
   },
   "dependencies": {
     "@google/generative-ai": "^0.2.1",
