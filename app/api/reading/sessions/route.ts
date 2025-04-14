@@ -1,6 +1,5 @@
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 import { cookies } from 'next/headers';
-import { NextResponse } from 'next/server';
 
 // Define ReadingSession type
 interface ReadingSession {
@@ -20,7 +19,7 @@ export async function POST(request: Request) {
     const { data: { session } } = await supabase.auth.getSession();
     
     if (!session) {
-      return new NextResponse(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
+      return Response.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const { bookId, startTime, endTime } = await request.json();
@@ -40,11 +39,11 @@ export async function POST(request: Request) {
 
     if (error) throw error;
 
-    return new NextResponse(JSON.stringify(data));
+    return Response.json(data);
   } catch (error) {
     console.error('Error creating reading session:', error);
-    return new NextResponse(
-      JSON.stringify({ error: 'Failed to create reading session' }),
+    return Response.json(
+      { error: 'Failed to create reading session' },
       { status: 500 }
     );
   }
@@ -56,7 +55,7 @@ export async function GET(request: Request) {
     const { data: { session } } = await supabase.auth.getSession();
     
     if (!session) {
-      return new NextResponse(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
+      return Response.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const { searchParams } = new URL(request.url);
@@ -85,11 +84,11 @@ export async function GET(request: Request) {
 
     if (error) throw error;
 
-    return new NextResponse(JSON.stringify(data));
+    return Response.json(data);
   } catch (error) {
     console.error('Error fetching reading sessions:', error);
-    return new NextResponse(
-      JSON.stringify({ error: 'Failed to fetch reading sessions' }),
+    return Response.json(
+      { error: 'Failed to fetch reading sessions' },
       { status: 500 }
     );
   }
@@ -101,7 +100,7 @@ export async function PATCH(request: Request) {
     const { data: { session } } = await supabase.auth.getSession();
     
     if (!session) {
-      return new NextResponse(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
+      return Response.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const { sessionId, endPage, startPage } = await request.json();
@@ -116,7 +115,7 @@ export async function PATCH(request: Request) {
     if (fetchError) throw fetchError;
 
     if (!existingSession) {
-      return new NextResponse(JSON.stringify({ error: 'Session not found' }), { status: 404 });
+      return Response.json({ error: 'Session not found' }, { status: 404 });
     }
 
     // Update the session
@@ -133,11 +132,11 @@ export async function PATCH(request: Request) {
 
     if (updateError) throw updateError;
 
-    return new NextResponse(JSON.stringify(updatedSession));
+    return Response.json(updatedSession);
   } catch (error) {
     console.error('Error ending reading session:', error);
-    return new NextResponse(
-      JSON.stringify({ error: 'Failed to end reading session' }),
+    return Response.json(
+      { error: 'Failed to end reading session' },
       { status: 500 }
     );
   }

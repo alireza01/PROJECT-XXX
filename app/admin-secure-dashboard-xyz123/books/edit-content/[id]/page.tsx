@@ -65,7 +65,7 @@ export default function BooksManagement() {
   const searchParams = useSearchParams()
   
   // State variables
-  const [searchQuery, setSearchQuery] = useState(searchParams.get("q") || "")
+  const [searchQuery, setSearchQuery] = useState(searchParams?.get("q") || "") // Use optional chaining
   const [books, setBooks] = useState<Book[]>([])
   const [filteredBooks, setFilteredBooks] = useState<Book[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -322,7 +322,8 @@ export default function BooksManagement() {
   const handleSearch = (query: string) => {
     setSearchQuery(query)
     // Update URL with search query
-    const params = new URLSearchParams(searchParams.toString())
+    // Use optional chaining and nullish coalescing for safety
+    const params = new URLSearchParams(searchParams?.toString() ?? '')
     if (query) {
       params.set("q", query)
     } else {

@@ -102,6 +102,23 @@ ${colorConfig
 
 const ChartTooltip = RechartsPrimitive.Tooltip
 
+interface TooltipPayload {
+  dataKey?: string;
+  name?: string;
+  value?: number;
+  payload?: Record<string, any>;
+  color?: string;
+  fill?: string;
+}
+
+type FormatterFunction = (
+  value: number,
+  name: string,
+  item: TooltipPayload,
+  index: number,
+  payload?: Record<string, any>
+) => React.ReactNode;
+
 const ChartTooltipContent = React.forwardRef<
   HTMLDivElement,
   React.ComponentProps<typeof RechartsPrimitive.Tooltip> &
@@ -111,6 +128,7 @@ const ChartTooltipContent = React.forwardRef<
       indicator?: "line" | "dot" | "dashed"
       nameKey?: string
       labelKey?: string
+      formatter?: FormatterFunction
     }
 >(
   (
@@ -138,7 +156,7 @@ const ChartTooltipContent = React.forwardRef<
         return null
       }
 
-      const [item] = payload
+      const [item] = payload as TooltipPayload[]
       const key = `${labelKey || item.dataKey || item.name || "value"}`
       const itemConfig = getPayloadConfigFromPayload(config, item, key)
       const value =
@@ -149,7 +167,7 @@ const ChartTooltipContent = React.forwardRef<
       if (labelFormatter) {
         return (
           <div className={cn("font-medium", labelClassName)}>
-            {labelFormatter(value, payload)}
+            {labelFormatter(value, payload as TooltipPayload[])}
           </div>
         )
       }
@@ -185,10 +203,11 @@ const ChartTooltipContent = React.forwardRef<
       >
         {!nestLabel ? tooltipLabel : null}
         <div className="grid gap-1.5">
-          {payload.map((item, index) => {
+          {(payload as TooltipPayload[]).map((item: TooltipPayload, index: number) => {
             const key = `${nameKey || item.name || item.dataKey || "value"}`
             const itemConfig = getPayloadConfigFromPayload(config, item, key)
-            const indicatorColor = color || item.payload.fill || item.color
+            if (!itemConfig) return null;
+            const indicatorColor = color || item.payload?.fill || item.color
 
             return (
               <div
@@ -238,11 +257,6 @@ const ChartTooltipContent = React.forwardRef<
                           {itemConfig?.label || item.name}
                         </span>
                       </div>
-                      {item.value && (
-                        <span className="font-mono font-medium tabular-nums text-foreground">
-                          {item.value.toLocaleString()}
-                        </span>
-                      )}
                     </div>
                   </>
                 )}

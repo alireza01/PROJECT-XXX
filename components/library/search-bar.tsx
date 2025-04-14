@@ -1,23 +1,39 @@
 "use client"
 
-import { useRouter, useSearchParams } from "next/navigation"
+import { useRouter } from "next/navigation"
 import { Input } from "@/components/ui/input"
 import { Search } from "lucide-react"
-import { useDebounce } from "@/hooks/use-debounce"
+import useDebounce from "@/hooks/use-debounce"
 import { useEffect, useState } from "react"
 
-export function SearchBar() {
+interface SearchBarProps {
+  searchParams: {
+    q?: string
+    category?: string
+    level?: string
+    sort?: string
+    page?: string
+  }
+}
+
+export function SearchBar({ searchParams }: SearchBarProps) {
   const router = useRouter()
-  const searchParams = useSearchParams()
-  const [search, setSearch] = useState(searchParams.get("search") || "")
+  const [search, setSearch] = useState(searchParams.q || "")
   const debouncedSearch = useDebounce(search, 300)
 
   useEffect(() => {
-    const params = new URLSearchParams(searchParams)
+    const params = new URLSearchParams()
     if (debouncedSearch) {
-      params.set("search", debouncedSearch)
-    } else {
-      params.delete("search")
+      params.set("q", debouncedSearch)
+    }
+    if (searchParams.category) {
+      params.set("category", searchParams.category)
+    }
+    if (searchParams.level) {
+      params.set("level", searchParams.level)
+    }
+    if (searchParams.sort) {
+      params.set("sort", searchParams.sort)
     }
     params.set("page", "1")
     router.push(`/library?${params.toString()}`)

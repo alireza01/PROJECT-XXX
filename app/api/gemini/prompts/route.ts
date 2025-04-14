@@ -1,177 +1,89 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import { prisma } from '@/lib/prisma';
 import { authOptions } from '@/lib/auth';
+import { supabase } from '@/lib/supabase';
 
 export async function GET() {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), { 
-        status: 401,
-        headers: { 'Content-Type': 'application/json' }
-      });
+      return Response.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const prompts = await prisma.translationPrompt.findMany({
-      orderBy: {
-        isDefault: 'desc'
-      }
-    });
+    const { data: prompts, error } = await supabase
+      .from('prompts')
+      .select('*')
+      .eq('user_id', session.user.id)
+      .order('created_at', { ascending: false });
 
-    return new Response(JSON.stringify(prompts), {
-      headers: { 'Content-Type': 'application/json' }
-    });
+    if (error) {
+      console.error('Error fetching prompts:', error);
+      return Response.json({ error: 'Failed to fetch prompts' }, { status: 500 });
+    }
+
+    return Response.json({ prompts });
   } catch (error) {
-    console.error('Error fetching translation prompts:', error);
-    return new Response(JSON.stringify({ error: 'Internal Server Error' }), { 
-      status: 500,
-      headers: { 'Content-Type': 'application/json' }
-    });
+    console.error('Error in GET /api/gemini/prompts:', error);
+    return Response.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
 
-export async function POST(req: Request) {
+export async function POST(request: Request) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session?.user?.isAdmin) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), { 
-        status: 401,
-        headers: { 'Content-Type': 'application/json' }
-      });
+    if (!session?.user) {
+      return Response.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const body = await req.json();
-    const { name, prompt, isDefault } = body;
+    const { title, content, isPublic } = await request.json();
 
-    if (!name || !prompt) {
-      return new Response(JSON.stringify({ error: 'Missing required fields' }), { 
-        status: 400,
-        headers: { 'Content-Type': 'application/json' }
-      });
-    }
-
-    // If this is set as default, unset any existing default
-    if (isDefault) {
-      await prisma.translationPrompt.updateMany({
-        where: {
-          isDefault: true
+    const { data, error } = await supabase
+      .from('prompts')
+      .insert([
+        {
+          user_id: session.user.id,
+          title,
+          content,
+          is_public: isPublic || false,
         },
-        data: {
-          isDefault: false
-        }
-      });
+      ])
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error creating prompt:', error);
+      return Response.json({ error: 'Failed to create prompt' }, { status: 500 });
     }
 
-    const translationPrompt = await prisma.translationPrompt.create({
-      data: {
-        name,
-        prompt,
-        isDefault
-      }
-    });
-
-    return new Response(JSON.stringify(translationPrompt), {
-      headers: { 'Content-Type': 'application/json' }
-    });
+    return Response.json({ prompt: data });
   } catch (error) {
-    console.error('Error creating translation prompt:', error);
-    return new Response(JSON.stringify({ error: 'Internal Server Error' }), { 
-      status: 500,
-      headers: { 'Content-Type': 'application/json' }
-    });
+    console.error('Error in POST /api/gemini/prompts:', error);
+    return Response.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
 
-export async function PATCH(req: Request) {
+export async function DELETE(request: Request) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session?.user?.isAdmin) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), { 
-        status: 401,
-        headers: { 'Content-Type': 'application/json' }
-      });
+    if (!session?.user) {
+      return Response.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { searchParams } = new URL(req.url);
-    const id = searchParams.get('id');
-    const body = await req.json();
-    const { name, prompt, isDefault } = body;
+    const { id } = await request.json();
 
-    if (!id) {
-      return new Response(JSON.stringify({ error: 'Missing prompt ID' }), { 
-        status: 400,
-        headers: { 'Content-Type': 'application/json' }
-      });
+    const { error } = await supabase
+      .from('prompts')
+      .delete()
+      .match({ id, user_id: session.user.id });
+
+    if (error) {
+      console.error('Error deleting prompt:', error);
+      return Response.json({ error: 'Failed to delete prompt' }, { status: 500 });
     }
 
-    // If this is set as default, unset any existing default
-    if (isDefault) {
-      await prisma.translationPrompt.updateMany({
-        where: {
-          isDefault: true,
-          id: { not: id }
-        },
-        data: {
-          isDefault: false
-        }
-      });
-    }
-
-    const translationPrompt = await prisma.translationPrompt.update({
-      where: { id },
-      data: {
-        name,
-        prompt,
-        isDefault
-      }
-    });
-
-    return new Response(JSON.stringify(translationPrompt), {
-      headers: { 'Content-Type': 'application/json' }
-    });
+    return Response.json({ success: true });
   } catch (error) {
-    console.error('Error updating translation prompt:', error);
-    return new Response(JSON.stringify({ error: 'Internal Server Error' }), { 
-      status: 500,
-      headers: { 'Content-Type': 'application/json' }
-    });
-  }
-}
-
-export async function DELETE(req: Request) {
-  try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.isAdmin) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), { 
-        status: 401,
-        headers: { 'Content-Type': 'application/json' }
-      });
-    }
-
-    const { searchParams } = new URL(req.url);
-    const id = searchParams.get('id');
-
-    if (!id) {
-      return new Response(JSON.stringify({ error: 'Missing prompt ID' }), { 
-        status: 400,
-        headers: { 'Content-Type': 'application/json' }
-      });
-    }
-
-    await prisma.translationPrompt.delete({
-      where: { id }
-    });
-
-    return new Response(null, { 
-      status: 204,
-      headers: { 'Content-Type': 'application/json' }
-    });
-  } catch (error) {
-    console.error('Error deleting translation prompt:', error);
-    return new Response(JSON.stringify({ error: 'Internal Server Error' }), { 
-      status: 500,
-      headers: { 'Content-Type': 'application/json' }
-    });
+    console.error('Error in DELETE /api/gemini/prompts:', error);
+    return Response.json({ error: 'Internal server error' }, { status: 500 });
   }
 } 

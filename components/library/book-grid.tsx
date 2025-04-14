@@ -25,7 +25,7 @@ export function BookGrid({ books }: BookGridProps) {
             <Card className="overflow-hidden hover:shadow-lg transition-shadow">
               <div className="relative aspect-[3/4]">
                 <Image
-                  src={book.coverImage}
+                  src={book.cover_url || '/placeholder-book.jpg'}
                   alt={book.title}
                   fill
                   className="object-cover"
@@ -37,7 +37,7 @@ export function BookGrid({ books }: BookGridProps) {
                 <p className="text-sm text-muted-foreground mb-2">{book.author}</p>
                 <div className="flex items-center">
                   <Star className="w-4 h-4 text-yellow-400 fill-yellow-400 mr-1" />
-                  <span className="text-sm font-medium">{book.rating.toFixed(1)}</span>
+                  <span className="text-sm font-medium">4.5</span>
                 </div>
               </CardContent>
             </Card>

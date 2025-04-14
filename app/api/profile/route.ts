@@ -1,28 +1,41 @@
-import { getServerSession } from "next-auth/next"
-import { authOptions } from "@/lib/auth"
-import { prisma } from "@/lib/prisma-client"
+import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
+import { cookies } from 'next/headers'
+import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
+    const cookieStore = cookies()
+    const supabase = createRouteHandlerClient({ cookies: () => cookieStore })
     
-    if (!session?.user?.id) {
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+    
+    if (sessionError || !session?.user?.id) {
       return Response.json(
-        { error: "Unauthorized" },
+        { error: 'Unauthorized' },
         { status: 401 }
       )
     }
 
-    const profile = await prisma.profile.findUnique({
-      where: { userId: session.user.id },
-    })
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', session.user.id)
+      .single()
 
-    return Response.json(profile || { bio: "" })
+    if (profileError) {
+      console.error('Profile fetch error:', profileError)
+      return Response.json(
+        { error: 'Failed to fetch profile' },
+        { status: 500 }
+      )
+    }
+
+    return Response.json(profile || { bio: '' })
   } catch (error) {
-    console.error("Profile fetch error:", error)
+    console.error('Profile fetch error:', error)
     return Response.json(
-      { error: "Failed to fetch profile" },
+      { error: 'Failed to fetch profile' },
       { status: 500 }
     )
   }
@@ -30,41 +43,40 @@ export async function GET(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
+    const cookieStore = cookies()
+    const supabase = createRouteHandlerClient({ cookies: () => cookieStore })
     
-    if (!session?.user?.id) {
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+    
+    if (sessionError || !session?.user?.id) {
       return Response.json(
-        { error: "Unauthorized" },
+        { error: 'Unauthorized' },
         { status: 401 }
       )
     }
 
-    const { name, bio, image } = await request.json()
+    const updates = await request.json()
 
-    // Update user
-    await prisma.user.update({
-      where: { id: session.user.id },
-      data: { 
-        name,
-        image,
-      },
-    })
+    const { data: profile, error: updateError } = await supabase
+      .from('profiles')
+      .update(updates)
+      .eq('id', session.user.id)
+      .select()
+      .single()
 
-    // Update or create profile
-    const profile = await prisma.profile.upsert({
-      where: { userId: session.user.id },
-      update: { bio },
-      create: {
-        userId: session.user.id,
-        bio,
-      },
-    })
+    if (updateError) {
+      console.error('Profile update error:', updateError)
+      return Response.json(
+        { error: 'Failed to update profile' },
+        { status: 500 }
+      )
+    }
 
     return Response.json(profile)
   } catch (error) {
-    console.error("Profile update error:", error)
+    console.error('Profile update error:', error)
     return Response.json(
-      { error: "Failed to update profile" },
+      { error: 'Failed to update profile' },
       { status: 500 }
     )
   }

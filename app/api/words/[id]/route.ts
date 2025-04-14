@@ -1,40 +1,74 @@
 // @/app/api/words/[id]/route.ts
-import { prisma } from "@/lib/prisma-client";
-import { incrementWordSearchCount } from "@/actions/vocabulary";
-import type { NextRequest } from 'next/server';
+import { supabase } from '@/lib/supabase'
 
 export async function GET(
-  request: NextRequest,
+  request: Request,
   { params }: { params: { id: string } }
 ) {
   try {
-    const wordId = params.id;
+    const { data: word, error } = await supabase
+      .from('words')
+      .select('*')
+      .eq('id', params.id)
+      .single()
 
-    // Fetch the word details
-    const word = await prisma.word.findUnique({
-      where: { id: wordId },
-    });
+    if (error) throw error
 
-    if (!word) {
-      return Response.json({ error: "Word not found" }, { status: 404 });
-    }
-
-    // Increment search count
-    try {
-      await incrementWordSearchCount(wordId);
-    } catch (incrementError) {
-      console.error(`Failed to increment search count for word ${wordId}:`, incrementError);
-    }
-
-    // Return the word data
-    return Response.json(word);
-
+    return Response.json(word)
   } catch (error) {
-    console.error("API Error: [/api/words/[id] GET]", error);
+    console.error('Error fetching word:', error)
     return Response.json(
-      { error: "Internal Server Error fetching word" },
+      { error: 'Failed to fetch word' },
       { status: 500 }
-    );
+    )
+  }
+}
+
+export async function PUT(
+  request: Request,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const body = await request.json()
+
+    const { data: word, error } = await supabase
+      .from('words')
+      .update(body)
+      .eq('id', params.id)
+      .select()
+      .single()
+
+    if (error) throw error
+
+    return Response.json(word)
+  } catch (error) {
+    console.error('Error updating word:', error)
+    return Response.json(
+      { error: 'Failed to update word' },
+      { status: 500 }
+    )
+  }
+}
+
+export async function DELETE(
+  request: Request,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const { error } = await supabase
+      .from('words')
+      .delete()
+      .eq('id', params.id)
+
+    if (error) throw error
+
+    return Response.json({ success: true })
+  } catch (error) {
+    console.error('Error deleting word:', error)
+    return Response.json(
+      { error: 'Failed to delete word' },
+      { status: 500 }
+    )
   }
 }
 

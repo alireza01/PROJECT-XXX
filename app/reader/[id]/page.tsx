@@ -5,18 +5,22 @@ import { useParams } from "next/navigation"
 import { BookReader } from "@/components/reader/book-reader"
 import { PageControls } from "@/components/reader/page-controls"
 import { ReadingProgress } from "@/components/reader/reading-progress"
-import { Book } from "@/types"
+import { ExtendedBook } from "@/types/book"
 import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
 
+type VocabularyLevel = "beginner" | "intermediate" | "advanced"
+
 export default function ReaderPage() {
-  const { id } = useParams()
+  const params = useParams()
+  const id = params?.id as string
   const { data: session } = useSession()
   const router = useRouter()
-  const [book, setBook] = useState<Book | null>(null)
+  const [book, setBook] = useState<ExtendedBook | null>(null)
   const [currentPage, setCurrentPage] = useState(1)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [userLevel, setUserLevel] = useState<VocabularyLevel>("intermediate")
 
   useEffect(() => {
     if (!session) {
@@ -31,7 +35,14 @@ export default function ReaderPage() {
           throw new Error("Failed to fetch book")
         }
         const data = await response.json()
-        setBook(data)
+        // Add pages property if it doesn't exist
+        const bookWithPages = {
+          ...data,
+          pages: data.page_count || 1,
+          authorName: data.author || "Unknown Author",
+          author: data.author || "Unknown Author"
+        }
+        setBook(bookWithPages)
         setIsLoading(false)
       } catch (err) {
         setError(err instanceof Error ? err.message : "An error occurred")
@@ -95,14 +106,17 @@ export default function ReaderPage() {
       <div className="max-w-4xl mx-auto px-4 py-8">
         <div className="mb-8">
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{book.title}</h1>
-          <p className="text-gray-600 dark:text-gray-400">by {book.author}</p>
+          <p className="text-gray-600 dark:text-gray-400">by {book.authorName}</p>
         </div>
 
-        <BookReader
-          book={book}
-          currentPage={currentPage}
-          onPageChange={handlePageChange}
-        />
+        {book && (
+          <BookReader
+            book={book}
+            currentPage={currentPage}
+            onPageChange={handlePageChange}
+            userLevel={userLevel}
+          />
+        )}
 
         <PageControls
           currentPage={currentPage}

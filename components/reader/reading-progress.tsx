@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { ReadingProgressProps } from '@/types';
+import { ReadingProgressProps } from "@/types/reader"
 
 export function ReadingProgress({ currentPage, totalPages }: ReadingProgressProps) {
   const progress = (currentPage / totalPages) * 100;

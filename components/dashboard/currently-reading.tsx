@@ -118,40 +118,40 @@ export function CurrentlyReading({ books }: CurrentlyReadingProps) {
           onScroll={checkScrollButtons}
         >
           <motion.div className="flex gap-6" variants={container} initial="hidden" animate="show">
-            {books.map((item, index) => (
+            {books.map((book, index) => (
               <motion.div
-                key={item.id}
+                key={book.id}
                 variants={item}
                 transition={{ delay: index * 0.1, duration: 0.5 }}
                 className="flex-shrink-0 w-[280px]"
               >
-                <Link href={`/books/${item.book.slug}/read?page=${item.current_page}`}>
+                <Link href={`/books/${book.book.slug}/read?page=${book.current_page}`}>
                   <div className="bg-white dark:bg-gray-900 rounded-3xl p-4 shadow-lg border border-gold-200 dark:border-gray-800 h-full transition-transform hover:scale-[1.02] hover:shadow-xl">
                     <div className="flex gap-4">
                       <div className="relative w-20 h-28 flex-shrink-0">
                         <Image
-                          src={item.book.cover_image || "/placeholder.svg?height=300&width=200"}
-                          alt={item.book.title}
+                          src={book.book.cover_image || "/placeholder.svg?height=300&width=200"}
+                          alt={book.book.title}
                           fill
                           className="object-cover rounded-xl"
                         />
                       </div>
                       <div className="flex flex-col justify-between flex-1">
                         <div>
-                          <h3 className="font-bold text-gold-800 dark:text-gold-200 line-clamp-1">{item.book.title}</h3>
-                          <p className="text-sm text-gold-700 dark:text-gold-300 mb-2">{item.book.author.name}</p>
+                          <h3 className="font-bold text-gold-800 dark:text-gold-200 line-clamp-1">{book.book.title}</h3>
+                          <p className="text-sm text-gold-700 dark:text-gold-300 mb-2">{book.book.author.name}</p>
                         </div>
                         <div className="space-y-2">
                           <div className="flex justify-between text-sm">
                             <span className="text-gold-700 dark:text-gold-300">پیشرفت</span>
-                            <span className="text-gold-400 font-medium">{Math.round(item.completion_percentage)}٪</span>
+                            <span className="text-gold-400 font-medium">{Math.round(book.completion_percentage)}٪</span>
                           </div>
-                          <Progress value={item.completion_percentage} className="h-2 bg-gold-100 dark:bg-gray-800">
+                          <Progress value={book.completion_percentage} className="h-2 bg-gold-100 dark:bg-gray-800">
                             <div className="h-full bg-gradient-to-r from-gold-300 to-gold-400 rounded-full" />
                           </Progress>
                           <div className="flex justify-between text-xs text-gold-700 dark:text-gold-300">
-                            <span>صفحه {item.current_page}</span>
-                            <span>از {item.book.page_count} صفحه</span>
+                            <span>صفحه {book.current_page}</span>
+                            <span>از {book.book.page_count} صفحه</span>
                           </div>
                         </div>
                       </div>

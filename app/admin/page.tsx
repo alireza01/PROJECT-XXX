@@ -1,3 +1,4 @@
+import React from 'react';
 import { Metadata } from 'next';
 import { ApiKeyManager } from '@/components/admin/ApiKeyManager';
 import { ErrorLogViewer } from '@/components/admin/ErrorLogViewer';

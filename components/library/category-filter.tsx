@@ -21,10 +21,10 @@ interface CategoryFilterProps {
 export function CategoryFilter({ categories }: CategoryFilterProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const currentCategory = searchParams.get("category")
+  const currentCategory = searchParams?.get("category") ?? ""
 
   const handleCategoryChange = (value: string) => {
-    const params = new URLSearchParams(searchParams)
+    const params = new URLSearchParams(searchParams?.toString() ?? "")
     if (value) {
       params.set("category", value)
     } else {
@@ -35,7 +35,7 @@ export function CategoryFilter({ categories }: CategoryFilterProps) {
   }
 
   return (
-    <Select value={currentCategory || ""} onValueChange={handleCategoryChange}>
+    <Select value={currentCategory} onValueChange={handleCategoryChange}>
       <SelectTrigger className="w-[180px]">
         <SelectValue placeholder="Category" />
       </SelectTrigger>

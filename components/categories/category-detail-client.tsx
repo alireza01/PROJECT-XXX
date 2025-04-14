@@ -7,6 +7,7 @@ import { supabase } from "@/lib/supabase/client"
 import { SiteHeader } from "@/components/layout/site-header"
 import { SiteFooter } from "@/components/layout/site-footer"
 import { Pagination } from "@/components/ui/pagination"
+import { Book } from "@/types/book"
 
 interface Category {
   id: string
@@ -21,15 +22,16 @@ interface CategoryDetailClientProps {
 
 export function CategoryDetailClient({ slug }: CategoryDetailClientProps) {
   const searchParams = useSearchParams()
-  const page = Number(searchParams.get('page')) || 1
+  const page = searchParams?.get('page') ? Number(searchParams.get('page')) : 1
   const [category, setCategory] = useState<Category | null>(null)
+  const [books, setBooks] = useState<Book[]>([])
   const [totalPages, setTotalPages] = useState(1)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const ITEMS_PER_PAGE = 12
 
   useEffect(() => {
-    async function fetchCategory() {
+    async function fetchCategoryAndBooks() {
       try {
         setLoading(true)
         // Fetch category details
@@ -50,17 +52,27 @@ export function CategoryDetailClient({ slug }: CategoryDetailClientProps) {
             total_books: categoryData.total_books || 0
           })
           setTotalPages(Math.ceil((categoryData.total_books || 0) / ITEMS_PER_PAGE))
+
+          // Fetch books for this category
+          const { data: booksData, error: booksError } = await supabase
+            .from('books')
+            .select('*')
+            .eq('category_id', categoryData.id)
+            .range((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE - 1)
+
+          if (booksError) throw booksError
+          setBooks(booksData || [])
         }
       } catch (err) {
-        console.error('Error fetching category:', err)
+        console.error('Error fetching category and books:', err)
         setError('Failed to load category. Please try again later.')
       } finally {
         setLoading(false)
       }
     }
 
-    fetchCategory()
-  }, [slug])
+    fetchCategoryAndBooks()
+  }, [slug, page])
 
   if (loading) {
     return (
@@ -108,7 +120,7 @@ export function CategoryDetailClient({ slug }: CategoryDetailClientProps) {
           </p>
         </div>
 
-        <BookGrid />
+        <BookGrid books={books} />
 
         {totalPages > 1 && (
           <div className="mt-8">

@@ -8,8 +8,9 @@ export function KeyboardShortcuts() {
   const { setTheme, theme } = useTheme()
 
   // Theme toggle
-  useHotkeys("ctrl+shift+t", () => {
-    setTheme(theme === "dark" ? "light" : "dark")
+  useHotkeys('ctrl+t', (e: KeyboardEvent) => {
+    e.preventDefault()
+    setTheme(theme === 'dark' ? 'light' : 'dark')
   })
 
   // Navigation shortcuts
@@ -26,13 +27,13 @@ export function KeyboardShortcuts() {
   })
 
   // Search shortcut
-  useHotkeys("ctrl+k", (e) => {
+  useHotkeys('ctrl+k', (e: KeyboardEvent) => {
     e.preventDefault()
     document.querySelector<HTMLButtonElement>("[data-search-trigger]")?.click()
   })
 
   // Help dialog
-  useHotkeys("ctrl+shift+/", (e) => {
+  useHotkeys("ctrl+shift+/", (e: KeyboardEvent) => {
     e.preventDefault()
     document.querySelector<HTMLButtonElement>("[data-help-trigger]")?.click()
   })

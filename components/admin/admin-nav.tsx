@@ -11,20 +11,6 @@ import {
   Home,
   Settings,
   Users,
-  Bookmark,
-  BookmarkCheck,
-  BookmarkX,
-  BookmarkPlus,
-  BookmarkMinus,
-  BookmarkStar,
-  BookmarkHeart,
-  BookmarkIcon,
-  BookmarkCheckIcon,
-  BookmarkXIcon,
-  BookmarkPlusIcon,
-  BookmarkMinusIcon,
-  BookmarkStarIcon,
-  BookmarkHeartIcon,
 } from "lucide-react"
 
 const adminNavItems = [

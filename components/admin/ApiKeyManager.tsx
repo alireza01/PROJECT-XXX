@@ -28,9 +28,12 @@ export function ApiKeyManager() {
   const [newKey, setNewKey] = useState('');
   const [newName, setNewName] = useState('');
   const [isDefault, setIsDefault] = useState(false);
+  const [apiKey, setApiKey] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     fetchApiKeys();
+    fetchApiKey();
   }, []);
 
   const fetchApiKeys = async () => {
@@ -40,6 +43,18 @@ export function ApiKeyManager() {
       setApiKeys(data);
     } catch (error) {
       toast.error('Failed to fetch API keys');
+    }
+  };
+
+  const fetchApiKey = async () => {
+    try {
+      const response = await fetch('/api/admin/api-key');
+      if (response.ok) {
+        const data = await response.json();
+        setApiKey(data.apiKey || '');
+      }
+    } catch (error) {
+      console.error('Error fetching API key:', error);
     }
   };
 
@@ -90,6 +105,30 @@ export function ApiKeyManager() {
       fetchApiKeys();
     } catch (error) {
       toast.error('Failed to delete API key');
+    }
+  };
+
+  const handleSave = async () => {
+    setIsLoading(true);
+    try {
+      const response = await fetch('/api/admin/api-key', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ apiKey }),
+      });
+
+      if (response.ok) {
+        toast.success('API key saved successfully');
+      } else {
+        throw new Error('Failed to save API key');
+      }
+    } catch (error) {
+      toast.error('Error saving API key');
+      console.error('Error saving API key:', error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -161,6 +200,20 @@ export function ApiKeyManager() {
               </Card>
             ))}
           </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="apiKey">Gemini API Key</Label>
+            <Input
+              id="apiKey"
+              type="password"
+              value={apiKey}
+              onChange={(e) => setApiKey(e.target.value)}
+              placeholder="Enter your Gemini API key"
+            />
+          </div>
+          <Button onClick={handleSave} disabled={isLoading}>
+            {isLoading ? 'Saving...' : 'Save API Key'}
+          </Button>
         </div>
       </CardContent>
     </Card>

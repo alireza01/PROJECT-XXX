@@ -1,18 +1,17 @@
 // @/app/admin-secure-dashboard-xyz123/page.tsx
 import { redirect } from 'next/navigation';
 import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import { authConfig } from '@/lib/auth';
 import { BookManagement } from '@/components/admin/book-management';
 import { VocabularyManagement } from '@/components/admin/vocabulary-management';
 import { UserManagement } from '@/components/admin/user-management';
 import { Settings } from '@/components/admin/settings';
-import Card from "@/components/ui/card"
-import { CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Book, FileText, Users } from "lucide-react"
-import { prisma } from "@/lib/prisma"
+import { prisma } from "@/lib/prisma-client"
 
 export default async function AdminDashboard() {
-  const session = await getServerSession(authOptions);
+  const session = await getServerSession(authConfig);
 
   if (!session?.user || session.user.role !== "admin") {
     redirect('/');
@@ -20,7 +19,7 @@ export default async function AdminDashboard() {
 
   const [booksCount, wordsCount, usersCount] = await Promise.all([
     prisma.book.count(),
-    prisma.word.count(),
+    prisma.vocabulary.count(),
     prisma.user.count(),
   ]);
 

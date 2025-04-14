@@ -1,7 +1,11 @@
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models';
+import { GoogleGenerativeAI } from '@google/generative-ai';
+import { ApiKeyManager } from './api-key-manager';
+import { getServerSession } from 'next-auth';
+import { authConfig } from '@/lib/auth';
+import { supabase } from '@/lib/supabase';
+import { logError, logInfo } from '@/lib/logger';
 
-interface TranslationContext {
+export interface TranslationContext {
   text: string;
   bookId: string;
   context: string;
@@ -9,131 +13,167 @@ interface TranslationContext {
   authorName?: string;
 }
 
-interface TranslationResult {
-  translatedText: string;
-  notes: string[];
-  timestamp: string;
-  originalContext?: {
-    before: string;
-    selected: string;
-    after: string;
-  };
+export interface TranslationResult {
+  text: string;
+  sourceLanguage: string;
+  targetLanguage: string;
+  provider: string;
+  timestamp: number;
+  userId?: string;
+  bookId?: string;
 }
 
-async function translateWithGemini(
-  text: string,
-  context: { before: string; after: string; bookTitle?: string; authorName?: string }
-): Promise<{ translatedText: string; notes: string[] }> {
-  const prompt = `متن: "${text}"
+export class TranslationService {
+  private static instance: TranslationService;
+  private genAI!: GoogleGenerativeAI;
+  private cache: Map<string, TranslationResult> = new Map();
+  private readonly CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours
+  private apiKeyManager: ApiKeyManager;
+  private readonly MAX_RETRIES = 3;
 
-زمینه متن:
-${context.before ? `قبل: ${context.before}` : ''}
-${context.after ? `بعد: ${context.after}` : ''}
-${context.bookTitle ? `کتاب: ${context.bookTitle}` : ''}
-${context.authorName ? `نویسنده: ${context.authorName}` : ''}
-
-فقط این فرمت JSON را برگردان:
-{
-  "translatedText": "معنی دقیق به فارسی",
-  "notes": [
-    "معنی دقیق کلمه: [معنی لغوی]",
-    "مفهوم در این متن: [توضیح روان]",
-    "اصطلاحات مرتبط: [اگر وجود دارد]"
-  ]
-}`;
-
-  const response = await fetch(`${GEMINI_API_URL}/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      contents: [{
-        parts: [{ text: prompt }]
-      }],
-      generationConfig: {
-        temperature: 0.1, // Very low temperature for consistent output
-        topK: 10,
-        topP: 0.5,
-        maxOutputTokens: 500
-      },
-      safetySettings: [
-        {
-          category: "HARM_CATEGORY_HARASSMENT",
-          threshold: "BLOCK_NONE"
-        }
-      ]
-    })
-  });
-
-  if (!response.ok) {
-    throw new Error('Gemini API request failed');
+  private constructor() {
+    this.apiKeyManager = ApiKeyManager.getInstance();
   }
 
-  const data = await response.json();
-  
-  try {
-    let responseText = data.candidates[0].content.parts[0].text.trim();
-    
-    // Remove any extra text before the JSON
-    const jsonStart = responseText.indexOf('{');
-    if (jsonStart !== -1) {
-      responseText = responseText.slice(jsonStart);
+  public static getInstance(): TranslationService {
+    if (!TranslationService.instance) {
+      TranslationService.instance = new TranslationService();
     }
-    
-    const parsedResponse = JSON.parse(responseText);
-    return {
-      translatedText: parsedResponse.translatedText || '',
-      notes: Array.isArray(parsedResponse.notes) ? 
-        parsedResponse.notes.filter((note: string) => note && note.trim()) : []
-    };
-  } catch (e) {
-    // If JSON parsing fails, try to extract translation from the text
-    const text = data.candidates[0].content.parts[0].text;
-    const translationMatch = text.match(/["']translatedText["']\s*:\s*["']([^"']+)["']/);
-    return {
-      translatedText: translationMatch ? translationMatch[1] : text,
-      notes: []
-    };
+    return TranslationService.instance;
+  }
+
+  private isCacheValid(timestamp: number): boolean {
+    return Date.now() - timestamp < this.CACHE_DURATION;
+  }
+
+  private async saveTranslationToDatabase(result: TranslationResult): Promise<void> {
+    try {
+      const { error } = await supabase
+        .from('translations')
+        .insert({
+          original_text: result.text,
+          translated_text: result.text,
+          source_language: result.sourceLanguage,
+          target_language: result.targetLanguage,
+          provider: result.provider,
+          user_id: result.userId,
+          book_id: result.bookId,
+          created_at: new Date().toISOString()
+        });
+
+      if (error) {
+        logError(new Error('Failed to save translation to database'), { error });
+      }
+    } catch (error) {
+      logError(error as Error, { context: 'saveTranslationToDatabase' });
+    }
+  }
+
+  async translate(
+    text: string,
+    targetLanguage: string,
+    sourceLanguage: string = 'auto',
+    context?: TranslationContext
+  ): Promise<TranslationResult> {
+    if (!text) {
+      throw new Error('Text to translate cannot be empty');
+    }
+
+    if (!targetLanguage) {
+      throw new Error('Target language is required');
+    }
+
+    const cacheKey = `${text}-${sourceLanguage}-${targetLanguage}`;
+    const cachedResult = this.cache.get(cacheKey);
+
+    if (cachedResult && this.isCacheValid(cachedResult.timestamp)) {
+      return cachedResult;
+    }
+
+    let lastError: Error | null = null;
+    let lastUsedKey: string | null = null;
+
+    // Get the current user's ID
+    const session = await getServerSession(authConfig);
+    const userId = session?.user?.id || null;
+
+    // Try up to MAX_RETRIES times with different API keys
+    for (let attempt = 0; attempt < this.MAX_RETRIES; attempt++) {
+      try {
+        // Get a random API key, excluding the last failed key
+        const apiKey = await this.apiKeyManager.getRandomApiKey(userId, lastUsedKey || undefined);
+        lastUsedKey = apiKey;
+        this.genAI = new GoogleGenerativeAI(apiKey);
+
+        const model = this.genAI.getGenerativeModel({ model: 'gemini-pro' });
+        
+        // Enhanced prompt with context if available
+        let prompt = `Translate the following text from ${sourceLanguage} to ${targetLanguage}. Only return the translated text, nothing else:\n\n${text}`;
+        
+        if (context) {
+          prompt = `Context: ${context.context}\n\n${prompt}`;
+        }
+
+        const result = await model.generateContent(prompt);
+        const response = await result.response;
+        const translatedText = response.text();
+
+        if (!translatedText) {
+          throw new Error('Translation returned empty result');
+        }
+
+        const translationResult: TranslationResult = {
+          text: translatedText,
+          sourceLanguage,
+          targetLanguage,
+          provider: 'gemini',
+          timestamp: Date.now(),
+          userId,
+          bookId: context?.bookId
+        };
+
+        // Save to cache
+        this.cache.set(cacheKey, translationResult);
+
+        // Save to database in background
+        this.saveTranslationToDatabase(translationResult).catch(error => {
+          logError(error as Error, { context: 'background save to database' });
+        });
+
+        return translationResult;
+      } catch (error) {
+        lastError = error as Error;
+        logError(lastError, { attempt: attempt + 1 });
+        
+        // Log the API error and mark the key as failed
+        if (lastUsedKey) {
+          await this.apiKeyManager.logApiError(
+            lastUsedKey,
+            lastError.message,
+            lastError instanceof Response ? lastError.status : undefined
+          );
+        }
+
+        // If this was the last attempt, throw a generic error
+        if (attempt === this.MAX_RETRIES - 1) {
+          throw new Error('Translation service is temporarily unavailable. Please try again later.');
+        }
+      }
+    }
+
+    throw lastError || new Error('Translation failed');
+  }
+
+  clearCache(): void {
+    this.cache.clear();
+  }
+
+  getCacheSize(): number {
+    return this.cache.size;
   }
 }
 
-export async function translateText({
-  text,
-  bookId,
-  context,
-  bookTitle,
-  authorName,
-}: TranslationContext): Promise<TranslationResult> {
-  try {
-    const { before, after } = extractContext(context, text);
-    
-    const translationResult = await translateWithGemini(
-      text,
-      {
-        before,
-        after,
-        bookTitle,
-        authorName,
-      }
-    );
-    
-    return {
-      ...translationResult,
-      timestamp: new Date().toISOString(),
-      originalContext: {
-        before,
-        selected: text,
-        after,
-      }
-    };
-  } catch (error) {
-    console.error('Translation error:', error);
-    throw new Error('Failed to translate text');
-  }
-}
-
-function extractContext(fullText: string, selectedText: string): { before: string; after: string } {
+export function extractContext(fullText: string, selectedText: string): { before: string; after: string } {
   const maxContextLength = 100; // Characters to include before and after
   const textIndex = fullText.indexOf(selectedText);
   
@@ -166,4 +206,15 @@ export function getSurroundingText(
   const end = Math.min(lines.length, selectedLineIndex + contextLines + 1);
 
   return lines.slice(start, end).join('\n');
+}
+
+// Helper function for simple translations
+export async function translateText(
+  text: string,
+  targetLanguage: string,
+  sourceLanguage: string = 'auto'
+): Promise<string> {
+  const service = TranslationService.getInstance();
+  const result = await service.translate(text, targetLanguage, sourceLanguage);
+  return result.text;
 } 

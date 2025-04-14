@@ -1,7 +1,7 @@
 // @/app/api/books/[id]/bookmark/route.ts
 import { NextResponse } from "next/server";
 import { getAuthSession } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/lib/prisma-client";
 import { z } from "zod";
 
 // Validation schema for bookmark operations

@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { motion } from "framer-motion"
-import Button from "@/components/ui/button"
+import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { cn } from "@/lib/utils"
@@ -109,7 +109,7 @@ export function SiteHeader({ className }: SiteHeaderProps) {
           {!isLoading && (
             <>
               {user ? (
-                <UserAccountNav user={user} />
+                <UserAccountNav />
               ) : (
                 <div className="hidden md:flex items-center gap-2">
                   <Button

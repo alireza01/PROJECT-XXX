@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { getAuthSession } from "@/lib/auth"
-import { prisma } from "@/lib/prisma"
+import { supabase } from "@/lib/supabase/client"
 import { getBookPageWithWords } from "@/lib/data"
 
 export async function GET(request: Request, { params }: { params: { id: string } }) {
@@ -9,14 +9,20 @@ export async function GET(request: Request, { params }: { params: { id: string }
     const pageNumber = Number(searchParams.get("page") || "1")
 
     // Get book details
-    const book = await prisma.book.findUnique({
-      where: { id: params.id },
-      include: {
-        author: true,
-      },
-    })
+    const { data: book, error: bookError } = await supabase
+      .from('books')
+      .select(`
+        id,
+        title,
+        page_count,
+        authors (
+          name
+        )
+      `)
+      .eq('id', params.id)
+      .single()
 
-    if (!book) {
+    if (bookError || !book) {
       return Response.json({ error: "Book not found" }, { status: 404 })
     }
 
@@ -27,17 +33,15 @@ export async function GET(request: Request, { params }: { params: { id: string }
     // Get user progress if logged in
     let currentPage = pageNumber
     if (session?.user) {
-      const progress = await prisma.userProgress.findUnique({
-        where: {
-          userId_bookId: {
-            userId: session.user.id,
-            bookId: book.id,
-          },
-        },
-      })
+      const { data: progress } = await supabase
+        .from('user_progress')
+        .select('current_page')
+        .eq('user_id', session.user.id)
+        .eq('book_id', book.id)
+        .single()
 
       if (progress && !searchParams.has("page")) {
-        currentPage = progress.currentPage
+        currentPage = progress.current_page
       }
     }
 
@@ -63,14 +67,13 @@ export async function GET(request: Request, { params }: { params: { id: string }
     // Check if book is bookmarked
     let isBookmarked = false
     if (session?.user) {
-      const bookmark = await prisma.bookmark.findUnique({
-        where: {
-          userId_bookId: {
-            userId: session.user.id,
-            bookId: book.id,
-          },
-        },
-      })
+      const { data: bookmark } = await supabase
+        .from('bookmarks')
+        .select('id')
+        .eq('user_id', session.user.id)
+        .eq('book_id', book.id)
+        .single()
+      
       isBookmarked = !!bookmark
     }
 
@@ -78,8 +81,8 @@ export async function GET(request: Request, { params }: { params: { id: string }
       book: {
         id: book.id,
         title: book.title,
-        author: book.author.name,
-        totalPages: book.pageCount,
+        author: Array.isArray(book.authors) ? book.authors[0]?.name : 'Unknown Author',
+        totalPages: book.page_count,
       },
       currentPage,
       pageContent,

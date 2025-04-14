@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { PageControlsProps } from '@/types';
+import { PageControlsProps } from "@/types/reader";
 import { Button } from '@/components/ui/button';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 

@@ -205,8 +205,10 @@ export async function getBookReadingStats(bookId: string): Promise<{
       .select("progress")
       .eq("book_id", bookId)
 
-    const totalReaders = progressData?.length || 0
-    const averageProgress = progressData?.reduce((sum, item) => sum + (item.progress || 0), 0) / totalReaders || 0
+    const totalReaders = progressData?.length ?? 0
+    const averageProgress = progressData 
+      ? progressData.reduce((sum, item) => sum + (item.progress ?? 0), 0) / (totalReaders || 1) 
+      : 0
 
     // Get average reading time
     const { data: sessionData } = await supabase
@@ -295,7 +297,7 @@ export async function getReadingHistory(
     }
 
     if (params?.offset) {
-      query = query.offset(params.offset)
+      query = query.range(params.offset, params.offset + (params.limit ?? 10) - 1)
     }
 
     const { data, error } = await query

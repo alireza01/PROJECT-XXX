@@ -18,9 +18,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Upload, X, Plus, Save, ArrowLeft, ImageIcon, Loader2 } from "lucide-react"
-import { addBook } from "@/actions/books"; // Updated path: TODO: Verify/create this action in @/actions/books.ts
-import { useToast } from "@/hooks/use-toast";
-import { prisma } from '@/lib/prisma-client';
+import { addBook, uploadBookCover, uploadBookFile, addBookTags } from "@/actions/books"
+import { useToast } from "@/hooks/use-toast"
+import { supabase } from '@/lib/supabase'
 
 // Define ReadingLevel type locally based on schema
 type ReadingLevel = 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED';
@@ -117,40 +117,35 @@ export function BookForm({ initialData }: BookFormProps) {
   useEffect(() => {
     async function fetchData() {
       try {
-        const [categoriesData, authorsData] = await Promise.all([
-          prisma.category.findMany({
-            select: {
-              id: true,
-              name: true,
-              slug: true,
-            },
-            orderBy: {
-              name: 'asc',
-            },
-          }),
-          prisma.author.findMany({
-            select: {
-              id: true,
-              name: true,
-              bio: true,
-            },
-            orderBy: {
-              name: 'asc',
-            },
-          }),
-        ]);
+        const { data: categoriesData, error: categoriesError } = await supabase
+          .from('categories')
+          .select('*')
+          .order('name')
 
-        setCategories(categoriesData);
-        setAuthors(authorsData);
+        if (categoriesError) throw categoriesError
+        setCategories(categoriesData)
+
+        const { data: authorsData, error: authorsError } = await supabase
+          .from('authors')
+          .select('*')
+          .order('name')
+
+        if (authorsError) throw authorsError
+        setAuthors(authorsData)
+
+        setLoading(false)
       } catch (error) {
-        console.error('Error fetching form data:', error);
-      } finally {
-        setLoading(false);
+        console.error('Error fetching data:', error)
+        toast({
+          title: "خطا",
+          description: "خطا در دریافت اطلاعات",
+          variant: "destructive",
+        })
       }
     }
 
-    fetchData();
-  }, []);
+    fetchData()
+  }, [toast])
 
   const handleCoverUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -194,29 +189,47 @@ export function BookForm({ initialData }: BookFormProps) {
   };
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
-    setIsSubmitting(true);
-    if (!coverFile) { toast({ title: "خطا", description: "لطفا تصویر جلد کتاب را انتخاب کنید.", variant: "destructive" }); setIsSubmitting(false); return; }
-    if (!bookFile) { toast({ title: "خطا", description: "لطفا فایل کتاب را انتخاب کنید.", variant: "destructive" }); setIsSubmitting(false); return; }
-
     try {
-      const formData = new FormData();
-      Object.entries(values).forEach(([key, value]) => {
-        if (key === "tags") formData.append(key, JSON.stringify(value ?? []));
-        else if (value !== undefined && value !== null && value !== '') formData.append(key, value.toString());
-      });
-      formData.append("coverFile", coverFile);
-      formData.append("bookFile", bookFile);
+      setIsSubmitting(true)
 
-      const result = await addBook(formData); // Ensure addBook exists and handles FormData
+      let coverUrl = null
+      let fileUrl = null
 
-      if (result?.error) throw new Error(result.error);
+      if (coverFile) {
+        coverUrl = await uploadBookCover(coverFile)
+      }
 
-      toast({ title: "موفقیت", description: "کتاب با موفقیت اضافه شد." });
-      // Redirect should happen in server action on success
-    } catch (error: any) {
-      console.error("Error submitting form:", error);
-      toast({ title: "خطا در ثبت کتاب", description: error.message || "مشکلی در هنگام افزودن کتاب پیش آمد.", variant: "destructive" });
-      setIsSubmitting(false);
+      if (bookFile) {
+        fileUrl = await uploadBookFile(bookFile)
+      }
+
+      const bookData = {
+        ...values,
+        cover_url: coverUrl,
+        file_url: fileUrl,
+      }
+
+      const book = await addBook(bookData)
+
+      if (selectedTags.length > 0) {
+        await addBookTags(book.id, selectedTags)
+      }
+
+      toast({
+        title: "موفق",
+        description: "کتاب با موفقیت اضافه شد",
+      })
+
+      router.push('/admin/books')
+    } catch (error) {
+      console.error('Error submitting form:', error)
+      toast({
+        title: "خطا",
+        description: "خطا در ذخیره اطلاعات",
+        variant: "destructive",
+      })
+    } finally {
+      setIsSubmitting(false)
     }
   }
 

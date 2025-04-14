@@ -76,7 +76,7 @@ export default function DashboardHeader() {
           <ThemeToggle />
           
           {user ? (
-            <UserAccountNav user={user} />
+            <UserAccountNav />
           ) : (
             <Button asChild variant="default" size="sm">
               <Link href="/auth/login">ورود</Link>
@@ -110,3 +110,19 @@ export default function DashboardHeader() {
                           isActive 
                             ? 'text-primary' 
                             : 'text-muted-foreground'
+                        }`}
+                      >
+                        <Icon className="h-4 w-4 ml-2" />
+                        {item.label}
+                      </Link>
+                    )
+                  })}
+                </nav>
+              </div>
+            </SheetContent>
+          </Sheet>
+        </div>
+      </div>
+    </motion.header>
+  )
+}

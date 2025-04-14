@@ -1,13 +1,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { Plus, Trash2, CheckCircle2 } from 'lucide-react';
+import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 
 interface TranslationPrompt {
@@ -22,18 +20,24 @@ export function TranslationPromptManager() {
   const [newName, setNewName] = useState('');
   const [newPrompt, setNewPrompt] = useState('');
   const [isDefault, setIsDefault] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     fetchPrompts();
   }, []);
 
   const fetchPrompts = async () => {
+    setIsLoading(true);
     try {
-      const response = await fetch('/api/gemini/prompts');
-      const data = await response.json();
-      setPrompts(data);
+      const response = await fetch('/api/admin/translation-prompts');
+      if (response.ok) {
+        const data = await response.json();
+        setPrompts(data.prompts);
+      }
     } catch (error) {
-      toast.error('Failed to fetch translation prompts');
+      console.error('Error fetching prompts:', error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -43,8 +47,9 @@ export function TranslationPromptManager() {
       return;
     }
 
+    setIsLoading(true);
     try {
-      const response = await fetch('/api/gemini/prompts', {
+      const response = await fetch('/api/admin/translation-prompts', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -56,102 +61,108 @@ export function TranslationPromptManager() {
         }),
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to add translation prompt');
+      if (response.ok) {
+        toast.success('Prompt added successfully');
+        setNewName('');
+        setNewPrompt('');
+        setIsDefault(false);
+        fetchPrompts();
+      } else {
+        throw new Error('Failed to add prompt');
       }
-
-      toast.success('Translation prompt added successfully');
-      setNewName('');
-      setNewPrompt('');
-      setIsDefault(false);
-      fetchPrompts();
     } catch (error) {
-      toast.error('Failed to add translation prompt');
+      toast.error('Error adding prompt');
+      console.error('Error adding prompt:', error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const handleDeletePrompt = async (id: string) => {
     try {
-      const response = await fetch(`/api/gemini/prompts?id=${id}`, {
+      const response = await fetch(`/api/admin/translation-prompts?id=${id}`, {
         method: 'DELETE',
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to delete translation prompt');
+      if (response.ok) {
+        toast.success('Prompt deleted successfully');
+        fetchPrompts();
+      } else {
+        throw new Error('Failed to delete prompt');
       }
-
-      toast.success('Translation prompt deleted successfully');
-      fetchPrompts();
     } catch (error) {
-      toast.error('Failed to delete translation prompt');
+      toast.error('Error deleting prompt');
+      console.error('Error deleting prompt:', error);
     }
   };
 
   return (
-    <Card className="w-full">
+    <Card>
       <CardHeader>
         <CardTitle>Translation Prompts</CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="space-y-4">
+        <div className="space-y-6">
           <div className="space-y-4">
-            <Input
-              placeholder="Prompt Name"
-              value={newName}
-              onChange={(e) => setNewName(e.target.value)}
-            />
-            <Textarea
-              placeholder="Enter the translation prompt..."
-              value={newPrompt}
-              onChange={(e) => setNewPrompt(e.target.value)}
-              className="min-h-[100px]"
-            />
-            <div className="flex items-center space-x-2">
-              <Switch
-                id="default"
-                checked={isDefault}
-                onCheckedChange={setIsDefault}
+            <div className="space-y-2">
+              <Label htmlFor="name">Prompt Name</Label>
+              <Input
+                id="name"
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                placeholder="Enter prompt name"
               />
-              <Label htmlFor="default">Default Prompt</Label>
             </div>
-            <Button onClick={handleAddPrompt}>
-              <Plus className="mr-2 h-4 w-4" />
-              Add Prompt
+            <div className="space-y-2">
+              <Label htmlFor="prompt">Prompt Text</Label>
+              <Textarea
+                id="prompt"
+                value={newPrompt}
+                onChange={(e) => setNewPrompt(e.target.value)}
+                placeholder="Enter prompt text"
+                rows={4}
+              />
+            </div>
+            <div className="flex items-center space-x-2">
+              <input
+                type="checkbox"
+                id="isDefault"
+                checked={isDefault}
+                onChange={(e) => setIsDefault(e.target.checked)}
+              />
+              <Label htmlFor="isDefault">Set as default prompt</Label>
+            </div>
+            <Button onClick={handleAddPrompt} disabled={isLoading}>
+              {isLoading ? 'Adding...' : 'Add Prompt'}
             </Button>
           </div>
 
           <div className="space-y-4">
+            <h3 className="text-lg font-medium">Existing Prompts</h3>
             {prompts.map((prompt) => (
-              <Card key={prompt.id}>
-                <CardContent className="pt-6">
-                  <div className="flex items-start justify-between">
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2">
-                        {prompt.isDefault && (
-                          <CheckCircle2 className="h-4 w-4 text-green-500" />
-                        )}
-                        <span className="font-medium">{prompt.name}</span>
-                      </div>
-                      <p className="text-sm text-muted-foreground">
-                        {prompt.prompt}
-                      </p>
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleDeletePrompt(prompt.id)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+              <div key={prompt.id} className="rounded-lg border p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="font-medium">{prompt.name}</h4>
+                    {prompt.isDefault && (
+                      <span className="text-xs text-muted-foreground">
+                        Default Prompt
+                      </span>
+                    )}
                   </div>
-                </CardContent>
-              </Card>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => handleDeletePrompt(prompt.id)}
+                  >
+                    Delete
+                  </Button>
+                </div>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  {prompt.prompt}
+                </p>
+              </div>
             ))}
-            {prompts.length === 0 && (
-              <p className="text-center text-muted-foreground">
-                No translation prompts found
-              </p>
-            )}
           </div>
         </div>
       </CardContent>

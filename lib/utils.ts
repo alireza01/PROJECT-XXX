@@ -1,5 +1,6 @@
 import { type ClassValue, clsx } from "clsx"
 import { twMerge } from "tailwind-merge"
+import { createDebouncedFunction } from "./debounce"
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -27,13 +28,32 @@ export function formatPageNumber(page: number): string {
   return page.toString().padStart(3, '0')
 }
 
-export function debounce<T extends (...args: any[]) => any>(
+// Re-export the debounce function with a simpler interface
+export const debounce = <T extends (...args: any[]) => any>(
   func: T,
   wait: number
-): (...args: Parameters<T>) => void {
-  let timeout: NodeJS.Timeout
-  return (...args: Parameters<T>) => {
-    clearTimeout(timeout)
-    timeout = setTimeout(() => func(...args), wait)
-  }
+): (...args: Parameters<T>) => void => {
+  return createDebouncedFunction(func, wait);
+};
+
+export function formatDate(date: Date | string): string {
+  const d = new Date(date)
+  return new Intl.DateTimeFormat("fa-IR", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  }).format(d)
+}
+
+export function formatNumber(num: number): string {
+  return new Intl.NumberFormat().format(num)
+}
+
+export function formatPrice(price: number): string {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(price)
 } 

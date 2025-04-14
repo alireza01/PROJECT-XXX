@@ -1,12 +1,12 @@
 "use client"
 
 import * as React from "react"
-import { useDropzone } from "react-dropzone"
+import { useDropzone, DropzoneOptions } from "react-dropzone"
 import { UploadCloud } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 
-interface DragAndDropProps extends React.HTMLAttributes<HTMLDivElement> {
+interface DragAndDropProps extends Omit<React.HTMLAttributes<HTMLDivElement>, 'onDrop'> {
   onDrop: (acceptedFiles: File[]) => void
   accept?: Record<string, string[]>
   maxSize?: number
@@ -35,7 +35,7 @@ export function DragAndDrop({
     maxSize,
     maxFiles,
     disabled,
-  })
+  } as DropzoneOptions)
 
   return (
     <div
@@ -52,31 +52,13 @@ export function DragAndDrop({
       {...props}
     >
       <input {...getInputProps()} />
-      <div className="flex flex-col items-center justify-center pt-5 pb-6">
-        <UploadCloud className="mb-3 h-10 w-10 text-gray-400" />
-        {isDragActive ? (
-          <p className="mb-2 text-sm text-gray-500 dark:text-gray-400">
-            فایل را اینجا رها کنید...
-          </p>
-        ) : (
-          <>
-            <p className="mb-2 text-sm text-gray-500 dark:text-gray-400">
-              <span className="font-semibold">کلیک کنید</span> یا فایل را به
-              اینجا بکشید
-            </p>
-            {accept && (
-              <p className="text-xs text-gray-500 dark:text-gray-400">
-                {Object.keys(accept).join(", ")}
-              </p>
-            )}
-            {maxSize && (
-              <p className="text-xs text-gray-500 dark:text-gray-400">
-                حداکثر حجم: {Math.round(maxSize / 1024 / 1024)} مگابایت
-              </p>
-            )}
-          </>
-        )}
-      </div>
+      <UploadCloud className="mb-2 h-8 w-8 text-gray-400" />
+      <p className="mb-2 text-sm text-gray-500 dark:text-gray-400">
+        <span className="font-semibold">Click to upload</span> or drag and drop
+      </p>
+      <p className="text-xs text-gray-500 dark:text-gray-400">
+        {accept ? Object.keys(accept).join(", ") : "Any file type"} up to {maxSize ? `${maxSize / 1024 / 1024}MB` : "any size"}
+      </p>
     </div>
   )
 } 

@@ -1,53 +1,30 @@
 // @/app/page.tsx
-import { SiteFooter } from "@/components/layout/site-footer"
-import { HeroSection } from "@/components/home/hero-section"
-import { TrendingBooks } from "@/components/home/trending-books"
-import { Categories } from "@/components/home/categories"
-import { AppFeatures } from "@/components/home/app-features"
-import { DownloadApp } from "@/components/home/download-app"
-import { Testimonials } from "@/components/home/testimonials"
-import { HowItWorks } from "@/components/home/how-it-works"
+import Link from "next/link"
+import { Button } from "@/components/ui/button"
 
-export default function Home() {
+export default function HomePage() {
   return (
-    <div className="flex flex-col min-h-screen bg-gradient-to-b from-amber-50/80 via-white to-amber-50/30 dark:from-gray-900 dark:via-gray-950 dark:to-gray-900">
-      <main className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Main hero section */}
-        <section className="animate-fade-in">
-          <HeroSection />
-        </section>
-        
-        {/* How the platform works */}
-        <section className="animate-fade-in mt-24">
-          <HowItWorks />
-        </section>
-        
-        {/* Popular books section */}
-        <section className="animate-fade-in mt-24">
-          <TrendingBooks />
-        </section>
-        
-        {/* Book categories */}
-        <section className="animate-fade-in mt-24">
-          <Categories />
-        </section>
-        
-        {/* App features and benefits */}
-        <section className="animate-fade-in mt-24">
-          <AppFeatures />
-        </section>
-        
-        {/* User testimonials */}
-        <section className="animate-fade-in mt-24">
-          <Testimonials />
-        </section>
-        
-        {/* Mobile app download section */}
-        <section className="animate-fade-in mt-24">
-          <DownloadApp />
-        </section>
-      </main>
-      <SiteFooter />
+    <div className="flex min-h-screen flex-col items-center justify-center">
+      <div className="container flex flex-col items-center justify-center gap-12 px-4 py-16">
+        <h1 className="text-5xl font-extrabold tracking-tight sm:text-[5rem]">
+          Welcome to{" "}
+          <span className="text-primary">Your App Name</span>
+        </h1>
+        <p className="text-center text-2xl">
+          Get started by editing{" "}
+          <code className="rounded-md bg-muted px-2 py-1 font-mono text-lg">
+            app/page.tsx
+          </code>
+        </p>
+        <div className="flex gap-4">
+          <Button asChild>
+            <Link href="/auth/signin">Sign In</Link>
+          </Button>
+          <Button asChild variant="outline">
+            <Link href="/auth/signup">Sign Up</Link>
+          </Button>
+        </div>
+      </div>
     </div>
   )
 }

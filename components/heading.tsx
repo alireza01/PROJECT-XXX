@@ -18,16 +18,16 @@ const headingStyles = {
 }
 
 export function Heading({ level, children, className, ...props }: HeadingProps) {
-  const Component = `h${level}` as keyof JSX.IntrinsicElements
+  const Component = `h${level}` as 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6'
   const defaultStyles = headingStyles[level]
 
-  return React.createElement(
-    Component,
-    {
-      className: cn(defaultStyles, className),
-      ...props,
-    },
-    children
+  return (
+    <Component
+      className={cn(defaultStyles, className)}
+      {...props}
+    >
+      {children}
+    </Component>
   )
 }
 

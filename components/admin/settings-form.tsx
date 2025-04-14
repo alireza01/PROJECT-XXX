@@ -24,7 +24,12 @@ const settingsSchema = z.object({
 
 type SettingsFormData = z.infer<typeof settingsSchema>;
 
-export function SettingsForm() {
+// Define props interface
+interface SettingsFormProps {
+  initialSettings: SettingsFormData | null | undefined; // Allow null or undefined
+}
+
+export function SettingsForm({ initialSettings }: SettingsFormProps) {
   const [isLoading, setIsLoading] = useState(false);
   const supabase = createClientComponentClient();
 
@@ -34,6 +39,7 @@ export function SettingsForm() {
     formState: { errors },
   } = useForm<SettingsFormData>({
     resolver: zodResolver(settingsSchema),
+    defaultValues: initialSettings || {}, // Use initialSettings for default values
   });
 
   const onSubmit = async (data: SettingsFormData) => {

@@ -1,49 +1,62 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useSearchParams } from "next/navigation"
 import { BookGrid } from "./book-grid"
 import { CategoryFilter } from "./category-filter"
 import { SearchBar } from "./search-bar"
 import { Pagination } from "./pagination"
 import { Book } from "@/types/book"
-import { getBooks } from "@/lib/data"
+import { getBooks, getCategories } from "@/lib/data"
 import { Skeleton } from "@/components/ui/skeleton"
 
 const ITEMS_PER_PAGE = 12
 
-export function LibraryClient() {
-  const searchParams = useSearchParams()
+interface LibraryClientProps {
+  searchParams: {
+    q?: string
+    category?: string
+    level?: string
+    sort?: string
+    page?: string
+  }
+}
+
+export function LibraryClient({ searchParams }: LibraryClientProps) {
   const [books, setBooks] = useState<Book[]>([])
+  const [categories, setCategories] = useState<{ id: string; name: string }[]>([])
   const [loading, setLoading] = useState(true)
   const [totalPages, setTotalPages] = useState(1)
   const [error, setError] = useState<string | null>(null)
 
-  const page = Number(searchParams.get("page")) || 1
-  const category = searchParams.get("category") || "all"
-  const search = searchParams.get("search") || ""
+  const page = Number(searchParams.page) || 1
+  const category = searchParams.category || "all"
+  const search = searchParams.q || ""
 
   useEffect(() => {
-    async function fetchBooks() {
+    async function fetchData() {
       try {
         setLoading(true)
-        const { books: fetchedBooks, total } = await getBooks({
-          page,
-          category: category === "all" ? undefined : category,
-          search: search || undefined,
-          limit: ITEMS_PER_PAGE,
-        })
-        setBooks(fetchedBooks)
-        setTotalPages(Math.ceil(total / ITEMS_PER_PAGE))
+        const [booksData, categoriesData] = await Promise.all([
+          getBooks({
+            page,
+            category: category === "all" ? undefined : category,
+            search: search || undefined,
+            limit: ITEMS_PER_PAGE,
+          }),
+          getCategories()
+        ])
+        setBooks(booksData.books)
+        setTotalPages(Math.ceil(booksData.total / ITEMS_PER_PAGE))
+        setCategories(categoriesData)
       } catch (err) {
-        console.error("Error fetching books:", err)
-        setError("Failed to load books. Please try again later.")
+        console.error("Error fetching data:", err)
+        setError("Failed to load data. Please try again later.")
       } finally {
         setLoading(false)
       }
     }
 
-    fetchBooks()
+    fetchData()
   }, [page, category, search])
 
   if (error) {
@@ -57,8 +70,8 @@ export function LibraryClient() {
   return (
     <div className="space-y-8">
       <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-        <SearchBar />
-        <CategoryFilter />
+        <SearchBar searchParams={searchParams} />
+        <CategoryFilter categories={categories} />
       </div>
 
       {loading ? (

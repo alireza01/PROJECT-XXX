@@ -1,8 +1,6 @@
 "use client"
 
 import { useState, useEffect } from "react";
-import { WordManagement } from "@/v2/components/admin/word-management";
-import { toast } from "sonner";
 import { supabase } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -39,11 +37,18 @@ export default function WordsManagementPage() {
         .insert([{ ...data, updatedAt: new Date().toISOString() }]);
 
       if (error) throw error;
-      toast.success('Word added successfully');
+      toast({
+        title: "Success",
+        description: "Word added successfully",
+      });
       // Refresh words list
       fetchWords();
     } catch (error) {
-      toast.error('Failed to add word');
+      toast({
+        title: "Error",
+        description: "Failed to add word",
+        variant: "destructive",
+      });
     } finally {
       setIsLoading(false);
     }
@@ -58,11 +63,18 @@ export default function WordsManagementPage() {
         .eq('id', id);
 
       if (error) throw error;
-      toast.success('Word updated successfully');
+      toast({
+        title: "Success",
+        description: "Word updated successfully",
+      });
       // Refresh words list
       fetchWords();
     } catch (error) {
-      toast.error('Failed to update word');
+      toast({
+        title: "Error",
+        description: "Failed to update word",
+        variant: "destructive",
+      });
     } finally {
       setIsLoading(false);
     }
@@ -77,11 +89,18 @@ export default function WordsManagementPage() {
         .eq('id', id);
 
       if (error) throw error;
-      toast.success('Word deleted successfully');
+      toast({
+        title: "Success",
+        description: "Word deleted successfully",
+      });
       // Refresh words list
       fetchWords();
     } catch (error) {
-      toast.error('Failed to delete word');
+      toast({
+        title: "Error",
+        description: "Failed to delete word",
+        variant: "destructive",
+      });
     } finally {
       setIsLoading(false);
     }
@@ -97,7 +116,11 @@ export default function WordsManagementPage() {
       if (error) throw error;
       setWords(data || []);
     } catch (error) {
-      toast.error('Failed to fetch words');
+      toast({
+        title: "Error",
+        description: "Failed to fetch words",
+        variant: "destructive",
+      });
     }
   };
 
@@ -117,7 +140,6 @@ export default function WordsManagementPage() {
         title: "Success",
         description: "Word added successfully",
       });
-
       setNewWord({});
       fetchWords();
     } catch (error) {

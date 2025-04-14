@@ -1,15 +1,45 @@
 import { redirect } from "next/navigation"
 import Link from "next/link"
 import Image from "next/image"
-import { auth } from "@/v2/lib/auth"
-import { prisma } from "@/v2/lib/db"
-import { formatDate } from "@/v2/lib/utils"
+import { getAuthSession } from "@/lib/auth"
+import { prisma } from "@/lib/db"
+import { formatDate } from "@/lib/utils"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Bookmark, BookOpen } from "lucide-react"
 
+// Define the Bookmark type based on the database schema
+interface Bookmark {
+  id: string;
+  userId: string;
+  bookId: string;
+  position: number;
+  createdAt: Date;
+  updatedAt: Date;
+  book: {
+    id: string;
+    title: string;
+    description: string | null;
+    coverImage: string | null;
+    author: {
+      id: string;
+      name: string;
+      bio: string | null;
+      createdAt: Date;
+      updatedAt: Date;
+    };
+    category: {
+      id: string;
+      name: string;
+      slug: string;
+      createdAt: Date;
+      updatedAt: Date;
+    };
+  };
+}
+
 export default async function BookmarksPage() {
-  const session = await auth()
+  const session = await getAuthSession()
 
   if (!session?.user) {
     redirect("/auth/login?redirect=/bookmarks")
@@ -31,7 +61,7 @@ export default async function BookmarksPage() {
     orderBy: {
       createdAt: "desc",
     },
-  })
+  }) as unknown as Bookmark[]
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -63,7 +93,7 @@ export default async function BookmarksPage() {
                 <div className="relative w-1/3 min-h-[220px]">
                   <Image
                     src={
-                      bookmark.book.coverUrl ||
+                      bookmark.book.coverImage ||
                       `/placeholder.svg?height=300&width=200&text=${encodeURIComponent(bookmark.book.title) || "/placeholder.svg"}`
                     }
                     alt={bookmark.book.title}
@@ -73,14 +103,14 @@ export default async function BookmarksPage() {
                 </div>
                 <div className="w-2/3 p-4 flex flex-col">
                   <div>
-                    <Link href={`/books/${bookmark.book.slug}`} className="hover:underline">
+                    <Link href={`/books/${bookmark.book.id}`} className="hover:underline">
                       <h3 className="font-bold text-lg text-amber-900 dark:text-amber-300 line-clamp-2">
                         {bookmark.book.title}
                       </h3>
                     </Link>
                     <p className="text-sm text-amber-700/80 dark:text-amber-400/80 mb-2">{bookmark.book.author.name}</p>
                     <p className="text-xs text-amber-700/60 dark:text-amber-400/60 mb-4">
-                      نشان شده در {formatDate(bookmark.createdAt)}
+                      نشان شده در {formatDate(bookmark.createdAt.toISOString())}
                     </p>
                     <p className="text-sm text-gray-700 dark:text-gray-300 line-clamp-3 mb-4">
                       {bookmark.book.description}
@@ -88,7 +118,7 @@ export default async function BookmarksPage() {
                   </div>
                   <div className="mt-auto">
                     <Button size="sm" className="w-full" asChild>
-                      <Link href={`/books/${bookmark.book.slug}/read`}>
+                      <Link href={`/books/${bookmark.book.id}/read`}>
                         <BookOpen className="h-4 w-4 ml-2" />
                         مطالعه
                       </Link>

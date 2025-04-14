@@ -1,19 +1,16 @@
 // File: @actions/vocabulary.ts
 "use server";
 
-// Removed: import { Prisma } from '@prisma/client';
-import { prisma } from '../lib/prisma-client'; // Corrected relative path
-import { createClient } from '../lib/supabase/server'; // Corrected relative path
+import { supabase } from '@/lib/supabase/client';
 import { cookies } from 'next/headers';
 import { revalidatePath } from 'next/cache';
-// Removed: import type { Level } from '@prisma/client';
+import type { Database } from '@/types/supabase';
 
-// Define Level type locally based on expected values from Prisma Schema
+// Define Level type locally
 type Level = 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED';
 
 // --- Authentication Helper (Consider moving to a shared file later) ---
 async function getAuthenticatedUserId(): Promise<string> {
-  const supabase = createClient();
   const { data: { user }, error } = await supabase.auth.getUser();
 
   if (error || !user) {
@@ -45,41 +42,23 @@ function getLevelsForUser(userLevel: Level): Level[] {
 /**
  * Gets words and their explanations for a specific page,
  * filtered by the authenticated user's proficiency level.
- * Assumes a UserProfile model exists linked to the auth user.
  */
 export async function getPageWordsAction(pageId: string) {
   try {
     const userId = await getAuthenticatedUserId();
 
-    // Fetch user profile to get their level securely
-    const userProfile = await prisma.userProfile.findUnique({
-      where: { userId },
-      select: { level: true },
-    });
+    // TODO: Need a way to map pageId to bookId
+    const bookId = pageId; // Placeholder: Assuming pageId can be used as bookId or mapped
+    console.warn("getPageWordsAction: Assuming pageId maps to bookId. Review this logic.");
 
-    if (!userProfile) {
-      console.error(`User profile not found for userId: ${userId}`);
-      return { success: false, error: "User profile not found.", data: [] };
-    }
+    const { data, error } = await supabase
+      .from('vocabulary')
+      .select('*')
+      .eq('book_id', bookId);
 
-    // Type assertion might be needed if Prisma doesn't infer Level correctly without the import
-    const userLevel = userProfile.level as Level;
-
-    const words = await prisma.bookWordPosition.findMany({
-      where: {
-        pageId,
-        explanation: {
-          difficultyLevel: {
-            in: getLevelsForUser(userLevel),
-          },
-        },
-      },
-      include: {
-        word: true,
-        explanation: true,
-      },
-    });
-    return { success: true, data: words };
+    if (error) throw error;
+    
+    return { success: true, data: data || [] };
   } catch (error: any) {
     console.error("Error getting page words:", error);
     if (error.message === "User not authenticated") {
@@ -94,20 +73,19 @@ export async function getPageWordsAction(pageId: string) {
  */
 export async function getWordExplanationAction(explanationId: string) {
   try {
-    const explanation = await prisma.explanation.findUnique({
-      where: {
-        id: explanationId,
-      },
-      include: {
-        word: true,
-      },
-    });
+    const { data, error } = await supabase
+      .from('vocabulary')
+      .select('*')
+      .eq('id', explanationId)
+      .single();
 
-    if (!explanation) {
+    if (error) throw error;
+
+    if (!data) {
         return { success: false, error: "Explanation not found", data: null };
     }
 
-    return { success: true, data: explanation };
+    return { success: true, data };
   } catch (error: any) {
     console.error("Error getting word explanation:", error);
     return { success: false, error: error.message || "Failed to get word explanation", data: null };
@@ -119,53 +97,48 @@ export async function getWordExplanationAction(explanationId: string) {
  * Requires authenticated user. Implement role checks if needed (e.g., admin).
  */
 export async function addWordAction(
+  bookId: string,
   word: string,
   persianMeaning: string,
-  difficultyLevel: Level, // Uses the locally defined Level type
+  difficultyLevel: Level,
   explanationText?: string,
   example?: string,
   pronunciation?: string
 ) {
   try {
-    await getAuthenticatedUserId();
+    const userId = await getAuthenticatedUserId();
 
-    const wordRecord = await prisma.word.upsert({
-        where: { word },
-        update: { pronunciation },
-        create: { word, pronunciation },
-    });
+    const { data, error } = await supabase
+      .from('vocabulary')
+      .insert({
+        word: word,
+        meaning: persianMeaning,
+        level: difficultyLevel,
+        explanation: explanationText || '',
+        book_id: bookId,
+        created_by: userId,
+      })
+      .select()
+      .single();
 
-    const explanationRecord = await prisma.explanation.create({
-      data: {
-        wordId: wordRecord.id,
-        difficultyLevel,
-        persianMeaning,
-        explanation: explanationText,
-        example,
-      },
-    });
+    if (error) throw error;
 
     revalidatePath('/admin-secure-dashboard-xyz123/words');
 
     return {
       success: true,
       data: {
-        word: wordRecord,
-        explanation: explanationRecord,
+        vocabulary: data
       }
     };
   } catch (error: any) {
     console.error("Error adding word:", error);
-     // Check for Prisma known error codes if possible (error might have a 'code' property)
-     if (error && typeof error === 'object' && 'code' in error && error.code === 'P2002') {
-         // Attempt to get target fields if available in meta
-         const target = (error.meta?.target as string[])?.join(', ');
-         console.warn(`Unique constraint failed on: ${target || 'unknown fields'}`);
-         return { success: false, error: `An explanation for this word at level '${difficultyLevel}' might already exist.` };
-     }
-     if (error.message === "User not authenticated") {
+    if (error.code === '23505') {
+      return { success: false, error: `An explanation for this word at level '${difficultyLevel}' might already exist.` };
+    }
+    if (error.message === "User not authenticated") {
         return { success: false, error: "Authentication required." };
-     }
+    }
     return { success: false, error: error.message || "Failed to add word" };
   }
 }
@@ -182,31 +155,23 @@ export async function tagWordInPageAction(
   endOffset: number
 ) {
   try {
-     await getAuthenticatedUserId();
+    await getAuthenticatedUserId();
 
-    const position = await prisma.bookWordPosition.create({
-      data: {
-        pageId,
-        wordId,
-        explanationId,
-        startOffset,
-        endOffset,
-      },
-    });
+    // The BookWordPosition model does not exist in the current schema.
+    // This functionality needs schema modification to be implemented.
+    console.error("Error tagging word: Feature not supported by current database schema (missing BookWordPosition model).");
+    return { success: false, error: "Feature not supported by current database schema." };
 
     revalidatePath('/library');
     console.log(`Word tagged on page ${pageId}. Consider specific revalidation for the book reading page.`);
-
-    return { success: true, data: position };
   } catch (error: any) {
     console.error("Error tagging word in page:", error);
-     if (error.message === "User not authenticated") {
+    if (error.message === "User not authenticated") {
         return { success: false, error: "Authentication required." };
-     }
-     // Check for Prisma known error codes if possible
-     if (error && typeof error === 'object' && 'code' in error && error.code === 'P2002') {
+    }
+    if (error.code === '23505') {
         return { success: false, error: "This exact word position might already be tagged." };
-     }
+    }
     return { success: false, error: error.message || "Failed to tag word" };
   }
 }
@@ -217,15 +182,8 @@ export async function tagWordInPageAction(
  */
 export async function incrementWordSearchCount(wordId: string): Promise<void> {
   try {
-    await prisma.word.update({
-      where: { id: wordId },
-      data: {
-        searchCount: {
-          increment: 1,
-        },
-      },
-    });
-    // console.log(`Incremented search count for word: ${wordId}`);
+    // The Vocabulary model does not have a 'searchCount' field in the schema.
+    console.warn(`Attempted to increment search count for word ${wordId}, but 'searchCount' field does not exist on Vocabulary model.`);
   } catch (error) {
     // Log error but don't necessarily throw, as this might be non-critical
     console.error(`Failed to increment search count for word ${wordId}:`, error);

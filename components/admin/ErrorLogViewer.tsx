@@ -1,103 +1,87 @@
 "use client"
 
 import { useState, useEffect } from 'react';
-import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { format } from 'date-fns';
 import { toast } from 'sonner';
 
 interface ErrorLog {
   id: string;
-  error: string;
-  statusCode: number | null;
+  message: string;
   timestamp: string;
-  resolved: boolean;
-  apiKey: {
-    name: string;
-  };
+  stack?: string;
 }
 
 export function ErrorLogViewer() {
-  const [errorLogs, setErrorLogs] = useState<ErrorLog[]>([]);
+  const [logs, setLogs] = useState<ErrorLog[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    fetchErrorLogs();
+    fetchLogs();
   }, []);
 
-  const fetchErrorLogs = async () => {
+  const fetchLogs = async () => {
+    setIsLoading(true);
     try {
-      const response = await fetch('/api/gemini/errors');
-      const data = await response.json();
-      setErrorLogs(data);
+      const response = await fetch('/api/admin/error-logs');
+      if (response.ok) {
+        const data = await response.json();
+        setLogs(data.logs);
+      }
     } catch (error) {
-      toast.error('Failed to fetch error logs');
+      console.error('Error fetching logs:', error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const handleResolveError = async (id: string) => {
+  const handleClearLogs = async () => {
     try {
-      const response = await fetch(`/api/gemini/errors?id=${id}`, {
-        method: 'PATCH',
+      const response = await fetch('/api/admin/error-logs', {
+        method: 'DELETE',
       });
-
-      if (!response.ok) {
-        throw new Error('Failed to resolve error');
+      if (response.ok) {
+        setLogs([]);
+        toast.success('Logs cleared successfully');
       }
-
-      toast.success('Error marked as resolved');
-      fetchErrorLogs();
     } catch (error) {
-      toast.error('Failed to resolve error');
+      toast.error('Error clearing logs');
+      console.error('Error clearing logs:', error);
     }
   };
 
   return (
-    <Card className="w-full">
-      <CardHeader>
-        <CardTitle>API Error Logs</CardTitle>
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between">
+        <CardTitle>Error Logs</CardTitle>
+        <Button variant="outline" onClick={handleClearLogs} disabled={isLoading}>
+          Clear Logs
+        </Button>
       </CardHeader>
       <CardContent>
-        <div className="space-y-4">
-          {errorLogs.map((log) => (
-            <Card key={log.id} className={log.resolved ? 'opacity-50' : ''}>
-              <CardContent className="pt-6">
-                <div className="flex items-start justify-between">
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2">
-                      {log.resolved ? (
-                        <CheckCircle2 className="h-4 w-4 text-green-500" />
-                      ) : (
-                        <AlertCircle className="h-4 w-4 text-yellow-500" />
-                      )}
-                      <span className="font-medium">{log.apiKey.name}</span>
-                    </div>
-                    <p className="text-sm text-muted-foreground">{log.error}</p>
-                    <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                      <span>Status: {log.statusCode || 'Unknown'}</span>
-                      <span>
-                        {new Date(log.timestamp).toLocaleString()}
-                      </span>
-                    </div>
+        <ScrollArea className="h-[400px]">
+          {logs.length === 0 ? (
+            <p className="text-center text-muted-foreground">No error logs found</p>
+          ) : (
+            <div className="space-y-4">
+              {logs.map((log) => (
+                <div key={log.id} className="rounded-lg border p-4">
+                  <div className="flex justify-between text-sm text-muted-foreground">
+                    <span>{format(new Date(log.timestamp), 'PPpp')}</span>
                   </div>
-                  {!log.resolved && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleResolveError(log.id)}
-                    >
-                      Mark as Resolved
-                    </Button>
+                  <p className="mt-2 font-medium">{log.message}</p>
+                  {log.stack && (
+                    <pre className="mt-2 overflow-auto rounded bg-muted p-2 text-sm">
+                      {log.stack}
+                    </pre>
                   )}
                 </div>
-              </CardContent>
-            </Card>
-          ))}
-          {errorLogs.length === 0 && (
-            <p className="text-center text-muted-foreground">
-              No error logs found
-            </p>
+              ))}
+            </div>
           )}
-        </div>
+        </ScrollArea>
       </CardContent>
     </Card>
   );

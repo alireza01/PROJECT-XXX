@@ -11,7 +11,7 @@ import { Slider } from "@/components/ui/slider"
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
 import { Progress } from "@/components/ui/progress"
 import { WordTooltip } from "./word-tooltip"
-import { supabase } from "@/lib/supabase/client"
+import { supabase, handleSupabaseResponse } from "@/lib/supabase"
 import {
   ChevronLeft,
   ChevronRight,
@@ -26,11 +26,38 @@ import {
   List,
   Home,
   CreditCard,
+  BookOpen,
 } from "lucide-react"
+import { HighlightedText } from './highlighted-text'
+import { updateReadingProgress, getUserBookmarks, addBookmark, removeBookmark } from '@/lib/user-progress'
+import { getPageWords } from '@/lib/vocabulary'
+import { VocabularyLevel } from '@/types/vocabulary'
+import { useAuth } from '@/hooks/useAuth'
+import { PostgrestSingleResponse, PostgrestResponse } from '@supabase/supabase-js'
+import type { AuthHook } from '@/types/auth'
+import { Card, CardContent } from "@/components/ui/card"
+import { Label } from "@/components/ui/label"
+import { Level } from '@/lib/prisma-client'
+
+interface Bookmark {
+  id: string;
+  user_id: string;
+  book_id: string;
+  page: number;
+  created_at: string;
+}
+
+interface WordPosition {
+  id: string;
+  start: number;
+  end: number;
+  explanationId: string;
+  word?: string;
+}
 
 interface BookReaderProps {
   book: {
-    id: number
+    id: string
     title: string
     slug: string
     page_count: number
@@ -46,6 +73,11 @@ interface BookReaderProps {
   maxAccessiblePage: number
   hasPurchased: boolean
   userId?: string
+  bookId: string
+  initialPage: number
+  totalPages: number
+  userLevel: VocabularyLevel
+  pageId: string
 }
 
 export function BookReader({
@@ -55,6 +87,11 @@ export function BookReader({
   maxAccessiblePage,
   hasPurchased,
   userId,
+  bookId,
+  initialPage,
+  totalPages,
+  userLevel,
+  pageId,
 }: BookReaderProps) {
   const [isDarkMode, setIsDarkMode] = useState(false)
   const [fontSize, setFontSize] = useState(18)
@@ -73,10 +110,42 @@ export function BookReader({
   const [chapters, setChapters] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [words, setWords] = useState<any[]>([])
+  const [wordPositions, setWordPositions] = useState<WordPosition[]>([])
+  const [loading, setLoading] = useState(false)
+  const [bookmarks, setBookmarks] = useState<Bookmark[]>([])
+  const [isCurrentPageBookmarked, setIsCurrentPageBookmarked] = useState(false)
 
   const contentRef = useRef<HTMLDivElement>(null)
   const readerContainerRef = useRef<HTMLDivElement>(null)
   const router = useRouter()
+
+  const { loading: authLoading } = useAuth() as AuthHook
+
+  const loadBookmarks = async () => {
+    if (!userId || !bookId) return;
+    
+    try {
+      const response: PostgrestResponse<Bookmark> = await supabase
+        .from('bookmarks')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('book_id', book.id);
+
+      if (response.error) throw response.error;
+      setBookmarks(response.data || []);
+      setIsCurrentPageBookmarked(response.data?.some(b => b.page === currentPage) || false);
+    } catch (error) {
+      console.error('Error loading bookmarks:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!authLoading && userId) {
+      loadBookmarks()
+    }
+  }, [authLoading, userId, bookId])
 
   useEffect(() => {
     // Check if user has bookmarked this book
@@ -159,33 +228,77 @@ export function BookReader({
       }
     }
 
+    // Load word positions for the current page
+    const loadPageWords = async () => {
+      try {
+        // Convert VocabularyLevel to Level type
+        const levelMap: Record<VocabularyLevel, Level> = {
+          'beginner': 'BEGINNER',
+          'intermediate': 'INTERMEDIATE',
+          'advanced': 'ADVANCED'
+        };
+        const mappedLevel = levelMap[userLevel];
+        
+        const words = await getPageWords(pageId, mappedLevel);
+        // Transform the words into the format expected by HighlightedText
+        const transformedWords = words.map((word, index) => ({
+          id: word.id,
+          start: word.start || 0,
+          end: word.end || 0,
+          explanationId: word.id,
+          word: word.word || ''
+        }));
+        setWordPositions(transformedWords);
+      } catch (error) {
+        console.error("Error loading page words:", error);
+      }
+    };
+
+    // Update reading progress when page changes
+    const saveProgress = async () => {
+      if (!userId || !pageId) return;
+      
+      try {
+        await updateReadingProgress(
+          userId,
+          bookId,
+          pageId,
+          currentPage
+        );
+      } catch (error) {
+        console.error('Error saving progress:', error);
+      }
+    };
+
     checkBookmark()
     checkLike()
     fetchChapters()
     fetchWords()
+    loadPageWords()
+    saveProgress()
 
     // Add keyboard navigation
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "ArrowLeft") {
-        handleNextPage()
-      } else if (e.key === "ArrowRight") {
         handlePrevPage()
+      } else if (e.key === "ArrowRight") {
+        handleNextPage()
       }
     }
 
     window.addEventListener("keydown", handleKeyDown)
     return () => window.removeEventListener("keydown", handleKeyDown)
-  }, [book.id, userId])
+  }, [book.id, userId, bookId, currentPage, userLevel, pageId, totalPages])
 
   const handlePrevPage = () => {
     if (currentPage > 1) {
-      router.push(`/books/${book.slug}/read?page=${currentPage - 1}`)
+      router.push(`/books/${book.slug}/page/${currentPage - 1}`)
     }
   }
 
   const handleNextPage = () => {
-    if (currentPage < maxAccessiblePage) {
-      router.push(`/books/${book.slug}/read?page=${currentPage + 1}`)
+    if (currentPage < totalPages) {
+      router.push(`/books/${book.slug}/page/${currentPage + 1}`)
     }
   }
 
@@ -195,537 +308,258 @@ export function BookReader({
 
   const handleWordClick = (e: React.MouseEvent) => {
     const target = e.target as HTMLElement
-
     if (target.classList.contains("word")) {
-      const wordText = target.getAttribute("data-word") || ""
-      const level =
-        Array.from(target.classList).find((cls) => ["beginner", "intermediate", "advanced"].includes(cls)) || "beginner"
-
-      // Find word in our database
-      const wordData = words.find((w) => w.word.toLowerCase() === wordText.toLowerCase())
-
+      const word = target.textContent
       const rect = target.getBoundingClientRect()
-      const containerRect = contentRef.current?.getBoundingClientRect() || { left: 0, top: 0 }
-
       setSelectedWord({
-        word: wordText,
-        meaning: wordData?.translation || "معنی فارسی کلمه",
-        explanation: wordData?.explanation || "توضیحات بیشتر درباره کلمه و کاربرد آن در جمله",
-        level: wordData?.level || level,
+        word: word || "",
+        meaning: "Loading...",
+        explanation: "Loading...",
+        level: target.dataset.level || "beginner",
         position: {
-          x: rect.left + rect.width / 2 - containerRect.left,
-          y: rect.bottom - containerRect.top,
+          x: rect.left + window.scrollX,
+          y: rect.top + window.scrollY,
         },
       })
-
-      setIsWordTooltipVisible(true)
-    } else {
-      setIsWordTooltipVisible(false)
     }
-  }
+  };
 
   const goToChapter = (page: number) => {
-    router.push(`/books/${book.slug}/read?page=${page}`)
+    router.push(`/books/${book.slug}/page/${page}`)
     setShowChapters(false)
   }
 
   const handleBookmark = async () => {
-    if (!userId) return
-
-    setIsLoading(true)
+    if (!userId) return;
+    
     try {
-      if (isBookmarked) {
-        // Remove bookmark
-        await supabase.from("user_bookmarks").delete().eq("user_id", userId).eq("book_id", book.id)
-
-        setIsBookmarked(false)
+      if (isCurrentPageBookmarked) {
+        const currentBookmark = bookmarks.find(b => b.page === currentPage);
+        if (currentBookmark) {
+          await removeBookmark(currentBookmark.id);
+          setIsCurrentPageBookmarked(false);
+        }
       } else {
-        // Add bookmark
-        await supabase.from("user_bookmarks").insert({
-          user_id: userId,
-          book_id: book.id,
-        })
-
-        setIsBookmarked(true)
+        await addBookmark(userId, bookId, pageId);
+        setIsCurrentPageBookmarked(true);
       }
     } catch (error) {
-      console.error("Error toggling bookmark:", error)
-    } finally {
-      setIsLoading(false)
+      console.error('Error toggling bookmark:', error);
     }
-  }
+  };
 
   const handleLike = async () => {
-    if (!userId) return
-
-    setIsLoading(true)
+    if (!userId) return;
+    
     try {
       if (isLiked) {
-        // Remove like
-        await supabase.from("user_likes").delete().eq("user_id", userId).eq("book_id", book.id)
-
-        setIsLiked(false)
+        const { error } = await supabase
+          .from("user_likes")
+          .delete()
+          .eq("user_id", userId)
+          .eq("book_id", book.id);
+          
+        if (error) throw error;
+        setIsLiked(false);
       } else {
-        // Add like
-        await supabase.from("user_likes").insert({
-          user_id: userId,
-          book_id: book.id,
-        })
-
-        setIsLiked(true)
+        const { error } = await supabase
+          .from("user_likes")
+          .insert({
+            user_id: userId,
+            book_id: book.id
+          });
+          
+        if (error) throw error;
+        setIsLiked(true);
       }
     } catch (error) {
-      console.error("Error toggling like:", error)
-    } finally {
-      setIsLoading(false)
+      console.error("Error toggling like:", error);
     }
-  }
+  };
 
   // Process content to highlight words
   const processContent = (content: string) => {
-    if (!content) return ""
-
-    let processedContent = content
-
-    // If we have words data, highlight them in the content
-    if (words.length > 0) {
-      words.forEach((word) => {
-        const regex = new RegExp(`\\b${word.word}\\b`, "gi")
+    let processedContent = content;
+    wordPositions.forEach((position) => {
+      const { start, end, word } = position;
+      if (word) {
+        const before = processedContent.substring(0, start);
+        const after = processedContent.substring(end);
+        processedContent = `${before}<span class="word" data-word="${word}">${word}</span>${after}`;
+        const wordRegex = new RegExp(`\\b${word}\\b`, 'gi');
         processedContent = processedContent.replace(
-          regex,
-          `<span class="word ${word.level}" data-word="${word.word}">$&</span>`,
-        )
-      })
-    }
+          wordRegex,
+          `<span class="word" data-word="${word}">${word}</span>`
+        );
+      }
+    });
+    
+    return processedContent;
+  };
 
-    return processedContent
-  }
+  const toggleBookmark = async () => {
+    if (!userId || !bookId) return;
+    
+    try {
+      if (isCurrentPageBookmarked) {
+        const currentBookmark = bookmarks.find(b => b.page === currentPage);
+        if (currentBookmark) {
+          await removeBookmark(currentBookmark.id);
+          setBookmarks(bookmarks.filter(b => b.page !== currentPage));
+          setIsCurrentPageBookmarked(false);
+        }
+      } else {
+        const result = await addBookmark(userId, bookId, pageId);
+        if (result && 
+            typeof result === 'object' && 
+            'id' in result && 
+            'user_id' in result && 
+            'book_id' in result && 
+            'page' in result && 
+            'created_at' in result) {
+          setBookmarks([...bookmarks, result as unknown as Bookmark]);
+          setIsCurrentPageBookmarked(true);
+        }
+      }
+    } catch (error) {
+      console.error('Error toggling bookmark:', error);
+    }
+  };
 
   return (
-    <div
-      ref={readerContainerRef}
-      className={`min-h-screen ${
-        isDarkMode ? "bg-gray-900 text-gold-50" : "bg-gold-50 text-gold-800"
-      } transition-colors duration-300`}
-    >
-      {/* Header */}
-      <div
-        className={`sticky top-0 z-10 flex justify-between items-center p-4 ${
-          isDarkMode
-            ? "bg-gray-900/90 backdrop-blur-md border-b border-gray-800"
-            : "bg-gold-50/90 backdrop-blur-md border-b border-gold-200"
-        } transition-colors duration-300`}
+    <div className="relative min-h-screen bg-background">
+      <motion.div
+        className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-sm border-b"
+        initial={{ y: -100 }}
+        animate={{ y: 0 }}
+        transition={{ duration: 0.3 }}
       >
-        <div className="flex items-center gap-2">
-          <Button
-            variant="ghost"
-            size="icon"
-            asChild
-            className={`rounded-full ${
-              isDarkMode
-                ? "text-gold-50 hover:bg-gray-800 hover:text-gold-50"
-                : "text-gold-800 hover:bg-gold-100/50 hover:text-gold-800"
-            }`}
-          >
-            <Link href={`/books/${book.slug}`}>
-              <X className="h-5 w-5" />
+        <div className="container flex items-center justify-between h-16">
+          <div className="flex items-center space-x-4">
+            <Link href="/" className="flex items-center space-x-2">
+              <Home className="w-5 h-5" />
+              <span>Home</span>
             </Link>
-          </Button>
-          <h2 className="font-bold text-sm md:text-base">{book.title}</h2>
-        </div>
-
-        <div className="text-center hidden md:block">
-          <p className={`text-sm ${isDarkMode ? "text-gold-50/70" : "text-gold-700"}`}>
-            صفحه {currentPage} از {book.page_count}
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <Button
-            variant="ghost"
-            size="icon"
-            className={`rounded-full ${
-              isDarkMode
-                ? "text-gold-50 hover:bg-gray-800 hover:text-gold-50"
-                : "text-gold-800 hover:bg-gold-100/50 hover:text-gold-800"
-            } ${isBookmarked ? "text-gold-400" : ""}`}
-            onClick={handleBookmark}
-            disabled={isLoading}
-          >
-            <Bookmark className={`h-5 w-5 ${isBookmarked ? "fill-gold-400" : ""}`} />
-          </Button>
-
-          <Button
-            variant="ghost"
-            size="icon"
-            className={`rounded-full ${
-              isDarkMode
-                ? "text-gold-50 hover:bg-gray-800 hover:text-gold-50"
-                : "text-gold-800 hover:bg-gold-100/50 hover:text-gold-800"
-            } ${isLiked ? "text-red-500" : ""}`}
-            onClick={handleLike}
-            disabled={isLoading}
-          >
-            <Heart className={`h-5 w-5 ${isLiked ? "fill-red-500" : ""}`} />
-          </Button>
-
-          <Button
-            variant="ghost"
-            size="icon"
-            className={`rounded-full ${
-              isDarkMode
-                ? "text-gold-50 hover:bg-gray-800 hover:text-gold-50"
-                : "text-gold-800 hover:bg-gold-100/50 hover:text-gold-800"
-            }`}
-          >
-            <Share2 className="h-5 w-5" />
-          </Button>
-
-          <Sheet>
-            <SheetTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className={`rounded-full ${
-                  isDarkMode
-                    ? "text-gold-50 hover:bg-gray-800 hover:text-gold-50"
-                    : "text-gold-800 hover:bg-gold-100/50 hover:text-gold-800"
-                }`}
-              >
-                <Settings className="h-5 w-5" />
-              </Button>
-            </SheetTrigger>
-            <SheetContent
-              side="left"
-              className={`w-80 ${
-                isDarkMode ? "bg-gray-900 text-gold-50 border-gray-800" : "bg-gold-50 text-gold-800 border-gold-200"
-              }`}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setIsDarkMode(!isDarkMode)}
             >
-              <SheetHeader>
-                <SheetTitle className={isDarkMode ? "text-gold-50" : "text-gold-800"}>تنظیمات</SheetTitle>
-              </SheetHeader>
-              <div className="space-y-6 mt-6">
-                <div className="space-y-2">
-                  <h3 className={`text-sm font-medium ${isDarkMode ? "text-gold-50" : "text-gold-800"}`}>اندازه متن</h3>
-                  <div className="flex items-center gap-4">
-                    <Type className={`h-4 w-4 ${isDarkMode ? "text-gold-50/70" : "text-gold-700"}`} />
-                    <Slider
-                      defaultValue={[fontSize]}
-                      max={32}
-                      min={12}
-                      step={1}
-                      onValueChange={(value) => setFontSize(value[0])}
-                      className="flex-1"
-                    />
-                    <span className={`text-sm w-8 text-center ${isDarkMode ? "text-gold-50" : "text-gold-800"}`}>
-                      {fontSize}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <h3 className={`text-sm font-medium ${isDarkMode ? "text-gold-50" : "text-gold-800"}`}>حالت نمایش</h3>
-                  <Button
-                    variant="outline"
-                    className={`w-full justify-start ${
-                      isDarkMode
-                        ? "border-gray-800 text-gold-50 hover:bg-gray-800 hover:text-gold-50"
-                        : "border-gold-200 text-gold-800 hover:bg-gold-100/50 hover:text-gold-800"
-                    }`}
-                    onClick={toggleDarkMode}
-                  >
-                    {isDarkMode ? (
-                      <>
-                        <Sun className="ml-2 h-4 w-4" /> حالت روشن
-                      </>
-                    ) : (
-                      <>
-                        <Moon className="ml-2 h-4 w-4" /> حالت تاریک
-                      </>
-                    )}
-                  </Button>
-                </div>
-              </div>
-            </SheetContent>
-          </Sheet>
-        </div>
-      </div>
-
-      {/* Book Content */}
-      <div className="relative flex justify-center items-center py-8 px-4">
-        <Button
-          variant="ghost"
-          size="icon"
-          className={`fixed right-4 top-1/2 transform -translate-y-1/2 z-10 ${
-            isDarkMode ? "bg-gray-800/80 hover:bg-gray-800 text-gold-50" : "bg-white/80 hover:bg-white text-gold-800"
-          } rounded-full shadow-lg hidden md:flex h-12 w-12`}
-          onClick={handlePrevPage}
-          disabled={currentPage <= 1}
-        >
-          <ChevronRight className="h-6 w-6" />
-        </Button>
-
-        <div
-          className={`relative max-w-2xl mx-auto ${
-            isDarkMode ? "bg-gray-900 border border-gray-800" : "bg-white border border-gold-200"
-          } rounded-3xl shadow-2xl p-8 md:p-12 min-h-[70vh]`}
-          style={{ direction: "ltr" }}
-        >
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={currentPage}
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -20 }}
-              transition={{ duration: 0.3 }}
-              className="relative"
+              {isDarkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setFontSize(fontSize + 2)}
             >
-              {pageContent.chapter_title && (
-                <h2 className={`text-xl font-bold mb-6 text-center ${isDarkMode ? "text-gold-50" : "text-gold-800"}`}>
-                  {pageContent.chapter_title}
-                </h2>
-              )}
+              <Type className="w-5 h-5" />
+            </Button>
+          </div>
+          <div className="flex items-center space-x-4">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleBookmark}
+              className={isBookmarked ? "text-primary" : ""}
+            >
+              <Bookmark className="w-5 h-5" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleLike}
+              className={isLiked ? "text-primary" : ""}
+            >
+              <Heart className="w-5 h-5" />
+            </Button>
+            <Sheet open={showChapters} onOpenChange={setShowChapters}>
+              <SheetTrigger asChild>
+                <Button variant="ghost" size="sm">
+                  <List className="w-5 h-5" />
+                </Button>
+              </SheetTrigger>
+              <SheetContent>
+                <SheetHeader>
+                  <SheetTitle>Chapters</SheetTitle>
+                </SheetHeader>
+                <div className="mt-4 space-y-2">
+                  {chapters.map((chapter) => (
+                    <Button
+                      key={chapter.chapter_number}
+                      variant="ghost"
+                      className="w-full justify-start"
+                      onClick={() => goToChapter(chapter.page_number)}
+                    >
+                      {chapter.chapter_title}
+                    </Button>
+                  ))}
+                </div>
+              </SheetContent>
+            </Sheet>
+          </div>
+        </div>
+      </motion.div>
 
+      <div className="container pt-20 pb-16">
+        <Card>
+          <CardContent>
+            <div className="prose dark:prose-invert max-w-none">
+              <h2 className="text-2xl font-bold mb-4">
+                {pageContent.chapter_title}
+              </h2>
               <div
                 ref={contentRef}
-                className={`prose prose-lg ${isDarkMode ? "prose-invert" : ""} max-w-none`}
+                className="text-lg leading-relaxed"
                 style={{ fontSize: `${fontSize}px` }}
                 onClick={handleWordClick}
-                dangerouslySetInnerHTML={{ __html: processContent(pageContent.content) }}
-              />
-
-              {isWordTooltipVisible && selectedWord && (
-                <WordTooltip
-                  word={selectedWord.word}
-                  meaning={selectedWord.meaning}
-                  explanation={selectedWord.explanation}
-                  level={selectedWord.level}
-                  position={selectedWord.position}
-                  onClose={() => setIsWordTooltipVisible(false)}
-                  isDarkMode={isDarkMode}
+              >
+                <HighlightedText
+                  content={pageContent.content}
+                  wordPositions={wordPositions}
                 />
-              )}
-
-              {currentPage === maxAccessiblePage && !hasPurchased && (
-                <div className={`mt-8 p-6 ${isDarkMode ? "bg-gray-800" : "bg-gold-100"} rounded-2xl text-center`}>
-                  <h3 className={`text-xl font-bold mb-2 ${isDarkMode ? "text-gold-50" : "text-gold-800"}`}>
-                    برای ادامه مطالعه، نسخه کامل را خریداری کنید
-                  </h3>
-                  <p className={`mb-4 ${isDarkMode ? "text-gold-50/70" : "text-gold-700"}`}>
-                    با خرید نسخه کامل، به تمام {book.page_count} صفحه کتاب دسترسی خواهید داشت
-                  </p>
-                  <Button className="bg-gradient-to-r from-gold-300 to-gold-400 hover:opacity-90 text-white rounded-full shadow-md">
-                    <CreditCard className="ml-2 h-4 w-4" />
-                    خرید نسخه کامل
-                  </Button>
-                </div>
-              )}
-            </motion.div>
-          </AnimatePresence>
-        </div>
-
-        <Button
-          variant="ghost"
-          size="icon"
-          className={`fixed left-4 top-1/2 transform -translate-y-1/2 z-10 ${
-            isDarkMode ? "bg-gray-800/80 hover:bg-gray-800 text-gold-50" : "bg-white/80 hover:bg-white text-gold-800"
-          } rounded-full shadow-lg hidden md:flex h-12 w-12`}
-          onClick={handleNextPage}
-          disabled={currentPage >= maxAccessiblePage}
-        >
-          <ChevronLeft className="h-6 w-6" />
-        </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
-      {/* Chapters Sheet */}
-      <Sheet open={showChapters} onOpenChange={setShowChapters}>
-        <SheetContent
-          side="right"
-          className={`w-80 ${
-            isDarkMode ? "bg-gray-900 text-gold-50 border-gray-800" : "bg-gold-50 text-gold-800 border-gold-200"
-          }`}
-        >
-          <SheetHeader>
-            <SheetTitle className={isDarkMode ? "text-gold-50" : "text-gold-800"}>فهرست مطالب</SheetTitle>
-          </SheetHeader>
-          <div className="mt-6">
-            <div className="space-y-2">
-              {chapters.map((chapter) => (
-                <Button
-                  key={chapter.chapter_number}
-                  variant="ghost"
-                  className={`w-full justify-start ${
-                    currentPage === chapter.page_number
-                      ? isDarkMode
-                        ? "bg-gray-800 text-gold-400"
-                        : "bg-gold-100/50 text-gold-400"
-                      : isDarkMode
-                        ? "text-gold-50 hover:bg-gray-800 hover:text-gold-50"
-                        : "text-gold-800 hover:bg-gold-100/50 hover:text-gold-800"
-                  }`}
-                  onClick={() => goToChapter(chapter.page_number)}
-                >
-                  <span className="ml-2 font-bold">فصل {chapter.chapter_number}:</span>
-                  <span className="truncate">{chapter.chapter_title}</span>
-                </Button>
-              ))}
-            </div>
-          </div>
-        </SheetContent>
-      </Sheet>
-
-      {/* Mobile Navigation */}
-      <div
-        className={`fixed bottom-0 left-0 right-0 ${
-          isDarkMode
-            ? "bg-gray-900/90 backdrop-blur-md border-t border-gray-800"
-            : "bg-gold-50/90 backdrop-blur-md border-t border-gold-200"
-        } p-4 flex flex-col gap-2 transition-colors duration-300`}
-      >
-        <div className="flex justify-between items-center">
+      <div className="fixed bottom-0 left-0 right-0 bg-background/80 backdrop-blur-sm border-t p-4">
+        <div className="container flex items-center justify-between">
           <Button
             variant="ghost"
-            size="icon"
-            className={`rounded-full ${
-              isDarkMode
-                ? "text-gold-50 hover:bg-gray-800 hover:text-gold-50"
-                : "text-gold-800 hover:bg-gold-100/50 hover:text-gold-800"
-            }`}
             onClick={handlePrevPage}
             disabled={currentPage <= 1}
           >
-            <ChevronRight className="h-6 w-6" />
+            <ChevronLeft className="w-5 h-5" />
           </Button>
-
-          <div className="flex-1 mx-4">
-            <div className="flex items-center justify-center mb-1">
-              <span className={`text-xs ${isDarkMode ? "text-gold-50/70" : "text-gold-700"}`}>
-                صفحه {currentPage} از {book.page_count}
-              </span>
-            </div>
-            <Progress
-              value={(currentPage / book.page_count) * 100}
-              className={`h-1 ${isDarkMode ? "bg-gray-800" : "bg-gold-100"}`}
-            >
-              <div className="h-full bg-gradient-to-r from-gold-300 to-gold-400 rounded-full" />
-            </Progress>
+          <div className="flex items-center space-x-4">
+            <span className="text-sm">
+              Page {currentPage} of {totalPages}
+            </span>
+            <Progress value={(currentPage / totalPages) * 100} className="w-32" />
           </div>
-
           <Button
             variant="ghost"
-            size="icon"
-            className={`rounded-full ${
-              isDarkMode
-                ? "text-gold-50 hover:bg-gray-800 hover:text-gold-50"
-                : "text-gold-800 hover:bg-gold-100/50 hover:text-gold-800"
-            }`}
             onClick={handleNextPage}
-            disabled={currentPage >= maxAccessiblePage}
+            disabled={currentPage >= totalPages}
           >
-            <ChevronLeft className="h-6 w-6" />
-          </Button>
-        </div>
-
-        <div className="flex justify-between">
-          <Button
-            variant="ghost"
-            size="sm"
-            className={`rounded-full ${
-              isDarkMode
-                ? "text-gold-50 hover:bg-gray-800 hover:text-gold-50"
-                : "text-gold-800 hover:bg-gold-100/50 hover:text-gold-800"
-            }`}
-            asChild
-          >
-            <Link href="/dashboard">
-              <Home className="h-4 w-4 ml-1" />
-              <span className="text-xs">خانه</span>
-            </Link>
-          </Button>
-
-          <Button
-            variant="ghost"
-            size="sm"
-            className={`rounded-full ${
-              isDarkMode
-                ? "text-gold-50 hover:bg-gray-800 hover:text-gold-50"
-                : "text-gold-800 hover:bg-gold-100/50 hover:text-gold-800"
-            }`}
-            onClick={() => setShowChapters(true)}
-          >
-            <List className="h-4 w-4 ml-1" />
-            <span className="text-xs">فهرست</span>
-          </Button>
-
-          <Button
-            variant="ghost"
-            size="sm"
-            className={`rounded-full ${
-              isDarkMode
-                ? "text-gold-50 hover:bg-gray-800 hover:text-gold-50"
-                : "text-gold-800 hover:bg-gold-100/50 hover:text-gold-800"
-            }`}
-            onClick={toggleDarkMode}
-          >
-            {isDarkMode ? (
-              <>
-                <Sun className="h-4 w-4 ml-1" />
-                <span className="text-xs">روشن</span>
-              </>
-            ) : (
-              <>
-                <Moon className="h-4 w-4 ml-1" />
-                <span className="text-xs">تاریک</span>
-              </>
-            )}
+            <ChevronRight className="w-5 h-5" />
           </Button>
         </div>
       </div>
 
-      <style jsx global>{`
-        .word {
-          position: relative;
-          cursor: pointer;
-          border-radius: 2px;
-          padding: 0 2px;
-        }
-        
-        .word.beginner {
-          background-color: rgba(230, 185, 128, 0.2);
-          border-bottom: 2px solid rgba(230, 185, 128, 0.8);
-        }
-        
-        .word.intermediate {
-          background-color: rgba(210, 158, 100, 0.2);
-          border-bottom: 2px solid rgba(210, 158, 100, 0.8);
-        }
-        
-        .word.advanced {
-          background-color: rgba(190, 131, 72, 0.2);
-          border-bottom: 2px solid rgba(190, 131, 72, 0.8);
-        }
-        
-        .dark .word.beginner {
-          background-color: rgba(230, 185, 128, 0.3);
-        }
-        
-        .dark .word.intermediate {
-          background-color: rgba(210, 158, 100, 0.3);
-        }
-        
-        .dark .word.advanced {
-          background-color: rgba(190, 131, 72, 0.3);
-        }
-        
-        .scrollbar-hide::-webkit-scrollbar {
-          display: none;
-        }
-        
-        .scrollbar-hide {
-          -ms-overflow-style: none;
-          scrollbar-width: none;
-        }
-      `}</style>
+      <AnimatePresence>
+        {selectedWord && (
+          <WordTooltip
+            word={selectedWord.word}
+            meaning={selectedWord.meaning}
+            explanation={selectedWord.explanation}
+            level={selectedWord.level}
+            position={selectedWord.position}
+            onClose={() => setSelectedWord(null)}
+          />
+        )}
+      </AnimatePresence>
     </div>
   )
 }

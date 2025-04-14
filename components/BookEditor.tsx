@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import TextAlign from '@tiptap/extension-text-align';
@@ -11,12 +11,11 @@ import Highlight from '@tiptap/extension-highlight';
 import Link from '@tiptap/extension-link';
 import Placeholder from '@tiptap/extension-placeholder';
 import Underline from '@tiptap/extension-underline';
-import Button from './ui/button';
+import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { toast } from 'sonner';
-import Card from './ui/card';
-import { CardContent, CardHeader, CardTitle } from './ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { 
   Bold, 
@@ -34,6 +33,17 @@ import {
   Save,
   Loader2
 } from 'lucide-react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import * as z from 'zod';
+import { useToast } from '@/hooks/use-toast';
+
+// Define the form schema
+const formSchema = z.object({
+  title: z.string().min(1, 'Title is required'),
+  author: z.string().min(1, 'Author is required'),
+  content: z.string().min(1, 'Content is required'),
+});
 
 interface BookEditorProps {
   onUploadComplete?: (bookId: string) => void;
@@ -57,6 +67,17 @@ export function BookEditor({
   const [wordCount, setWordCount] = useState(0);
   const [pageCount, setPageCount] = useState(0);
   const [autoSaveTimer, setAutoSaveTimer] = useState<NodeJS.Timeout | null>(null);
+  const { toast } = useToast();
+  const editorRef = useRef<ReturnType<typeof useEditor> | null>(null);
+
+  const form = useForm<z.infer<typeof formSchema>>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      title: initialTitle,
+      author: initialAuthor,
+      content: initialContent,
+    },
+  });
 
   const editor = useEditor({
     extensions: [
@@ -79,8 +100,8 @@ export function BookEditor({
       Underline,
     ],
     content: initialContent,
-    onUpdate: ({ editor }) => {
-      const text = editor.getText();
+    onUpdate: ({ editor: editorInstance }: { editor: ReturnType<typeof useEditor> }) => {
+      const text = editorInstance.getText();
       const words = text.split(/\s+/).filter(Boolean).length;
       setWordCount(words);
       setPageCount(Math.ceil(words / 250)); // Assuming 250 words per page
@@ -90,10 +111,10 @@ export function BookEditor({
         clearTimeout(autoSaveTimer);
       }
       const timer = setTimeout(() => {
-        handleAutoSave();
+        handleAutoSave(editorInstance);
       }, 5000);
       setAutoSaveTimer(timer);
-    },
+    }
   });
 
   useEffect(() => {
@@ -104,7 +125,7 @@ export function BookEditor({
     };
   }, [autoSaveTimer]);
 
-  const handleAutoSave = async () => {
+  const handleAutoSave = useCallback(async (editor: ReturnType<typeof useEditor>) => {
     if (!editor?.getText() || !title) return;
 
     try {
@@ -128,7 +149,7 @@ export function BookEditor({
     } catch (error) {
       console.error('Auto-save error:', error);
     }
-  };
+  }, [title, author, isEditing, wordCount, pageCount]);
 
   const addLink = useCallback(() => {
     const url = window.prompt('URL');
@@ -139,7 +160,11 @@ export function BookEditor({
 
   const handleSubmit = async () => {
     if (!title || !editor?.getText()) {
-      toast.error('Please fill in all required fields');
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Please fill in all required fields"
+      });
       return;
     }
 
@@ -165,7 +190,10 @@ export function BookEditor({
       }
 
       const data = await response.json();
-      toast.success('Book uploaded successfully!');
+      toast({
+        title: "Success",
+        description: "Book uploaded successfully!"
+      });
       onUploadComplete?.(data.bookId);
       
       // Reset form
@@ -175,7 +203,11 @@ export function BookEditor({
       setWordCount(0);
       setPageCount(0);
     } catch (error) {
-      toast.error('Failed to upload book');
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to upload book"
+      });
     } finally {
       setIsUploading(false);
     }

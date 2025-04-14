@@ -9,7 +9,9 @@ import {
   SheetDescription, 
   SheetHeader, 
   SheetTitle, 
-  SheetTrigger 
+  SheetTrigger,
+  SheetPortal,
+  SheetOverlay
 } from "@/components/ui/sheet";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
@@ -41,6 +43,7 @@ export function LibraryHeader({
   const pathname = usePathname();
   const [searchQuery, setSearchQuery] = useState(query);
   const [isPending, startTransition] = useTransition();
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
   
   // Levels for filtering
   const levels = [
@@ -124,7 +127,8 @@ export function LibraryHeader({
   // Clear all filters
   const clearFilters = () => {
     startTransition(() => {
-      router.push(pathname);
+      const path = pathname || '/';
+      router.push(path);
     });
   };
 
@@ -160,21 +164,20 @@ export function LibraryHeader({
       <div className="flex flex-wrap items-center gap-2 justify-between">
         <div className="flex flex-wrap items-center gap-2">
           {/* Mobile filter trigger */}
-          <Sheet>
+          <Sheet open={isFilterOpen} onOpenChange={setIsFilterOpen}>
             <SheetTrigger asChild>
               <Button variant="outline" size="sm" className="md:hidden">
                 <FilterIcon className="h-4 w-4 mr-2" />
                 فیلترها
               </Button>
             </SheetTrigger>
-            <SheetContent side="right">
+            <SheetContent side="right" className="w-full sm:max-w-md">
               <SheetHeader>
                 <SheetTitle>فیلترها</SheetTitle>
                 <SheetDescription>
                   فیلترهای مورد نظر خود را انتخاب کنید
                 </SheetDescription>
               </SheetHeader>
-              
               <div className="mt-6 space-y-6">
                 {/* Categories in mobile view */}
                 <div>

@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
-import { prisma } from '@/lib/prisma';
+import { authOptions, supabase } from '@/lib/auth';
 import { writeFile } from 'fs/promises';
 import { join } from 'path';
 
@@ -30,15 +29,37 @@ export async function POST(request: Request) {
       const path = join(process.cwd(), 'public', 'uploads', 'books', fileName);
       await writeFile(path, buffer);
 
-      const book = await prisma.book.create({
-        data: {
+      // Upload file to Supabase Storage
+      const { data: fileData, error: uploadError } = await supabase.storage
+        .from('books')
+        .upload(fileName, buffer, {
+          contentType: file.type,
+          cacheControl: '3600',
+          upsert: false
+        });
+
+      if (uploadError) {
+        throw uploadError;
+      }
+
+      // Create book record in Supabase
+      const { data: book, error: bookError } = await supabase
+        .from('books')
+        .insert({
           title,
           author: 'Unknown',
-          content: path,
-          totalPages: 0,
-          createdById: session.user.id,
-        },
-      });
+          content_path: fileData.path,
+          total_pages: 0,
+          created_by: session.user.id,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .select()
+        .single();
+
+      if (bookError) {
+        throw bookError;
+      }
 
       return Response.json({ bookId: book.id });
     } else {
@@ -49,15 +70,24 @@ export async function POST(request: Request) {
         return Response.json({ error: 'Missing required fields' }, { status: 400 });
       }
 
-      const book = await prisma.book.create({
-        data: {
+      // Create book record in Supabase
+      const { data: book, error: bookError } = await supabase
+        .from('books')
+        .insert({
           title,
           author: author || 'Unknown',
           content,
-          totalPages: Math.ceil(content.length / 2000), // Rough estimate of pages
-          createdById: session.user.id,
-        },
-      });
+          total_pages: Math.ceil(content.length / 2000), // Rough estimate of pages
+          created_by: session.user.id,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .select()
+        .single();
+
+      if (bookError) {
+        throw bookError;
+      }
 
       return Response.json({ bookId: book.id });
     }

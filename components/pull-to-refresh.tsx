@@ -31,26 +31,28 @@ export function PullToRefresh({
     }
   }
 
-  const handleTouchMove = (e: React.TouchEvent) => {
-    const { scrollTop } = e.currentTarget
-    if (scrollTop > 0 || isRefreshing) return
+  const handleTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (!isPulling) return
 
-    pullMoveY.current = e.touches[0].clientY
-    const distance = pullMoveY.current - pullStartY.current
+    const distance = e.touches[0].clientY - pullStartY.current
+    const resistance = 2.5
+    const distanceThreshold = 150
 
     if (distance > 0) {
       e.preventDefault()
       setIsPulling(true)
       const pullDistance = Math.min(distance / resistance, distanceThreshold)
-      e.currentTarget.style.transform = `translateY(${pullDistance}px)`
+      const target = e.currentTarget as HTMLDivElement
+      target.style.transform = `translateY(${pullDistance}px)`
     }
   }
 
-  const handleTouchEnd = async (e: React.TouchEvent) => {
+  const handleTouchEnd = async (e: React.TouchEvent<HTMLDivElement>) => {
     if (!isPulling) return
 
     const distance = pullMoveY.current - pullStartY.current
-    e.currentTarget.style.transform = ""
+    const target = e.currentTarget as HTMLDivElement
+    target.style.transform = ""
     setIsPulling(false)
 
     if (distance > distanceThreshold) {

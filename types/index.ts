@@ -1,28 +1,52 @@
 import { ReactNode } from 'react';
-import type { Prisma } from '@prisma/client';
+import type { Database } from './supabase';
+export * from './vocabulary';
 
-export type VocabularyLevel = "beginner" | "intermediate" | "advanced"
+export type Tables = Database['public']['Tables'];
+export type Enums = Database['public']['Enums'];
 
-export interface Book {
-  id: string
-  title: string
-  author: string
-  content: string
-  level: VocabularyLevel
-  coverImage?: string
-  totalPages: number
-  createdAt: string
-  updatedAt: string
+export type User = Tables['users']['Row'];
+export type Book = Tables['books']['Row'];
+export type ReadingProgress = Tables['reading_progress']['Row'];
+export type Bookmark = Tables['bookmarks']['Row'];
+export type Highlight = Tables['highlights']['Row'];
+export type Note = Tables['notes']['Row'];
+export type Vocabulary = Tables['vocabulary']['Row'];
+export type ReadingSession = Tables['reading_sessions']['Row'];
+
+export type VocabularyLevel = "BEGINNER" | "INTERMEDIATE" | "ADVANCED"
+
+// Helper types for common operations
+export type UserWithProgress = User & {
+  progress: ReadingProgress[];
+  vocabulary_level: VocabularyLevel;
+};
+
+export type BookWithProgress = Book & {
+  progress: ReadingProgress[];
+  bookmarks: Bookmark[];
+  highlights: Highlight[];
+  notes: Note[];
+};
+
+export type VocabularyWithBook = Vocabulary & {
+  book: Book;
+};
+
+// Vocabulary related types
+export interface VocabularyStats {
+  totalWords: number
+  knownWords: number
+  learningWords: number
+  newWords: number
+  currentLevel: VocabularyLevel
 }
 
-export interface User {
-  id: string
-  name: string
+export interface WordPosition {
+  word: string
+  start: number
+  end: number
   level: VocabularyLevel
-  progress: {
-    booksRead: number
-    wordsLearned: number
-  }
 }
 
 export interface VocabularyTooltipProps {
@@ -44,18 +68,7 @@ export interface PageControlsProps {
   onPageChange: (page: number) => void;
 }
 
-export interface ReadingProgress {
-  id: string;
-  userId: string;
-  user: User;
-  bookId: string;
-  book: Book;
-  progress: number;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface ReadingSession {
+export interface ReadingSessionData {
   id: string;
   userId: string;
   user: User;
@@ -80,7 +93,22 @@ export type ReadingProgressWithRelations = ReadingProgress & {
   book: any;
 };
 
-export type ReadingSessionWithRelations = ReadingSession & {
+export type ReadingSessionWithRelations = ReadingSessionData & {
   user: any;
   book: any;
-}; 
+};
+
+// Extended types for the reader components
+export interface Chapter {
+  id: string
+  bookId: string
+  title: string
+  chapter_number: number
+  page_number: number
+  content?: string
+}
+
+export * from './book'
+export * from './category'
+export * from './translation'
+export * from './supabase' 

@@ -1,8 +1,10 @@
 "use client"
 
-import { motion, AnimatePresence } from "framer-motion"
-import { X } from "lucide-react"
-import { VocabularyLevel } from "@/types"
+import { useState } from "react"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent } from "@/components/ui/card"
+import { cn } from "@/lib/utils"
+import { VocabularyLevel } from "@/types/vocabulary"
 
 interface VocabularyTooltipProps {
   word: string
@@ -10,6 +12,7 @@ interface VocabularyTooltipProps {
   position: { x: number; y: number }
   onClose: () => void
   userLevel: VocabularyLevel
+  children?: React.ReactNode
 }
 
 export function VocabularyTooltip({
@@ -18,18 +21,41 @@ export function VocabularyTooltip({
   position,
   onClose,
   userLevel,
+  children,
 }: VocabularyTooltipProps) {
+  const [isLoading, setIsLoading] = useState(false)
+
+  const handleAddToVocabulary = async () => {
+    setIsLoading(true)
+    try {
+      // API call to add word to user's vocabulary
+      await new Promise((resolve) => setTimeout(resolve, 500)) // Simulated API call
+      onClose()
+    } catch (error) {
+      console.error("Failed to add word to vocabulary:", error)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
   const getLevelColor = (level: VocabularyLevel) => {
     switch (level) {
       case "beginner":
         return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100"
       case "intermediate":
-        return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-100"
+        return "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-100"
       case "advanced":
-        return "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-100"
+        return "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-100"
       default:
-        return "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-100"
+        return "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-100"
     }
+  }
+
+  const isWordAppropriateForUser = () => {
+    const levels = ["beginner", "intermediate", "advanced"]
+    const userLevelIndex = levels.indexOf(userLevel)
+    const wordLevelIndex = levels.indexOf(level)
+    return wordLevelIndex <= userLevelIndex + 1
   }
 
   const getTranslation = (word: string) => {
@@ -45,31 +71,48 @@ export function VocabularyTooltip({
   }
 
   return (
-    <AnimatePresence>
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: 10 }}
-        className={`fixed z-50 p-4 rounded-lg shadow-lg ${getLevelColor(level)}`}
-        style={{
-          left: position.x,
-          top: position.y + 10,
-        }}
-      >
-        <div className="flex items-center justify-between mb-2">
-          <span className="font-semibold">{word}</span>
-          <button
-            onClick={onClose}
-            className="p-1 hover:bg-white/10 rounded-full"
+    <Card
+      className={cn(
+        "absolute z-50 w-64 shadow-lg",
+        !isWordAppropriateForUser() && "border-2 border-amber-500"
+      )}
+      style={{
+        top: `${position.y}px`,
+        left: `${position.x}px`,
+      }}
+    >
+      <CardContent className="p-3">
+        <div className="flex items-center justify-between">
+          <h3 className="font-medium">{word}</h3>
+          <span
+            className={cn(
+              "rounded-full px-2 py-0.5 text-xs font-medium",
+              getLevelColor(level)
+            )}
           >
-            <X className="w-4 h-4" />
-          </button>
+            {level}
+          </span>
+        </div>
+        <div className="mt-2 flex justify-between">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onClose}
+            disabled={isLoading}
+          >
+            Close
+          </Button>
+          {isWordAppropriateForUser() && (
+            <Button
+              size="sm"
+              onClick={handleAddToVocabulary}
+              disabled={isLoading}
+            >
+              {isLoading ? "Adding..." : "Add to Vocabulary"}
+            </Button>
+          )}
         </div>
         <div className="space-y-2">
-          <div className="text-sm">
-            <span className="font-medium">Level:</span>{" "}
-            <span className="capitalize">{level}</span>
-          </div>
           <div className="text-sm">
             <span className="font-medium">Translation:</span>{" "}
             {getTranslation(word)}
@@ -80,7 +123,7 @@ export function VocabularyTooltip({
             </div>
           )}
         </div>
-      </motion.div>
-    </AnimatePresence>
+      </CardContent>
+    </Card>
   )
 } 

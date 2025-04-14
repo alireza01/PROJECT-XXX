@@ -4,7 +4,7 @@ import { useRef, useEffect, useState } from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { motion, useAnimation } from "framer-motion"
-import Button from "@/components/ui/button"
+import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { ChevronLeft, ChevronRight, Star } from "lucide-react"
 import { getTrendingBooks } from '@/lib/data'

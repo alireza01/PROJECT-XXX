@@ -1,31 +1,19 @@
 // @/lib/data.ts
-import { prisma } from "@/lib/prisma-client";
-import { PrismaClient, type Book as PrismaBook, type Category as PrismaCategory } from '@prisma/client';
 import { supabase } from "@/lib/supabase/client";
+import type { Database } from '@/types/supabase';
 import { Book as BookType } from "@/types/book";
-
-const prismaClient = new PrismaClient();
 
 // Define ReadingLevel type locally based on schema
 type ReadingLevel = 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED';
 
-// Define types based on Prisma schema
-export type Category = {
-  id: string;
-  name: string;
-  slug: string;
+// Define types based on Supabase schema
+export type Category = Database['public']['Tables']['categories']['Row'] & {
   _count: {
     books: number;
   };
 }
 
-export type Book = {
-  id: string;
-  title: string;
-  coverImage: string | null;
-  rating: number | null;
-  createdAt: Date;
-  updatedAt: Date;
+export type Book = Database['public']['Tables']['books']['Row'] & {
   author: {
     id: string;
     name: string;
@@ -48,50 +36,41 @@ type BookWhereInput = {
   }>;
 }
 
-// Note: Most functions implicitly use types via Prisma return types.
-
-// Helper functions for common database operations (migrated from v2/lib/db.ts)
+// Helper functions for common database operations
 
 export async function getTrendingBooks(limit = 6) {
   try {
-    return await prisma.book.findMany({ // Changed from prisma.books
-      take: limit,
-      orderBy: {
-        views: "desc",
-      },
-      include: {
-        author: true,
-        category: true,
-      },
-    });
+    const { data, error } = await supabase
+      .from('books')
+      .select('*, author:author_id(*), category:category_id(*)')
+      .order('views', { ascending: false })
+      .limit(limit);
+    
+    if (error) throw error;
+    return data || [];
   } catch (error) {
     console.error("Error fetching trending books:", error);
-    // Consider returning an empty array or throwing a custom error
     return [];
   }
 }
 
 export async function getCategories(): Promise<Category[]> {
   try {
-    const categories = await prismaClient.category.findMany({
-      select: {
-        id: true,
-        name: true,
-        slug: true,
-        _count: {
-          select: { books: true },
-        },
-      },
-      orderBy: {
-        name: "asc",
-      },
-    });
-
-    return categories.map((category: { id: string; name: string; slug: string; _count: { books: number } }) => ({
-      id: category.slug,
+    const { data, error } = await supabase
+      .from('categories')
+      .select('id, name, slug, books:books(count)')
+      .order('name', { ascending: true });
+    
+    if (error) throw error;
+    
+    return (data || []).map(category => ({
+      id: category.id,
       name: category.name,
       slug: category.slug,
-      _count: category._count,
+      created_at: new Date().toISOString(),
+      _count: {
+        books: category.books?.[0]?.count || 0
+      }
     }));
   } catch (error) {
     console.error("Failed to fetch categories:", error);
@@ -103,45 +82,30 @@ export async function getBooksByCategory(slug: string, limit: number = 12, page:
   try {
     const skip = (page - 1) * limit;
 
-    const [books, total] = await Promise.all([
-      prisma.book.findMany({
-        where: {
-          category: {
-            slug,
-          },
-        },
-        select: {
-          id: true,
-          title: true,
-          slug: true,
-          coverImage: true,
-          rating: true,
-          author: true,
-        },
-        skip,
-        take: limit,
-        orderBy: {
-          title: "asc",
-        },
-      }),
-      prisma.book.count({
-        where: {
-          category: {
-            slug,
-          },
-        },
-      }),
+    const [booksResponse, totalResponse] = await Promise.all([
+      supabase
+        .from('books')
+        .select('id, title, slug, cover_url, author:author_id(*), category:category_id(*)')
+        .eq('category.slug', slug)
+        .order('title', { ascending: true })
+        .range(skip, skip + limit - 1),
+      supabase
+        .from('books')
+        .select('*', { count: 'exact', head: true })
+        .eq('category.slug', slug)
     ]);
 
+    if (booksResponse.error) throw booksResponse.error;
+    if (totalResponse.error) throw totalResponse.error;
+
     return {
-      items: books.map((book: { id: string; title: string; author: any; coverImage: string | null; rating: number | null }) => ({
+      items: (booksResponse.data || []).map((book) => ({
         id: book.id,
         title: book.title,
         author: book.author,
-        coverImage: book.coverImage || "/images/book-placeholder.jpg",
-        rating: book.rating || 0,
+        cover_url: book.cover_url || "/images/book-placeholder.jpg",
       })),
-      total,
+      total: totalResponse.count || 0,
     };
   } catch (error) {
     console.error("Failed to fetch books:", error);
@@ -151,23 +115,12 @@ export async function getBooksByCategory(slug: string, limit: number = 12, page:
 
 export async function getUserReadingProgress(userId: string) {
   try {
-    return await prisma.userProgress.findMany({
-      where: {
-        userId,
-      },
-      include: {
-        book: { // Include necessary book details
-          include: {
-            author: true,
-            category: true,
-          }
-        },
-      },
-      orderBy: {
-        lastReadAt: "desc",
-      },
-      take: 5, // Consider if this limit is always appropriate
-    });
+    return await supabase
+      .from('reading_progress')
+      .select('*, book:book_id(*), author:author_id(*), category:category_id(*)')
+      .eq('user_id', userId)
+      .order('last_read_at', { ascending: false })
+      .limit(5);
   } catch (error) {
     console.error(`Error fetching reading progress for user ${userId}:`, error);
     return [];
@@ -176,36 +129,30 @@ export async function getUserReadingProgress(userId: string) {
 
 export async function getBookDetails(bookId: string) {
   try {
-    return await prisma.book.findUnique({ // Changed from prisma.books
-      where: {
-        id: bookId,
-      },
-      include: {
-        author: true,
-        category: true,
-        pages: { // Consider performance implications of fetching all pages
-          orderBy: {
-            pageNumber: "asc",
-          },
-          // select: { pageNumber: true } // Example: Select only specific fields if needed
-        },
-      },
-    });
+    const { data, error } = await supabase
+      .from('books')
+      .select('*, author:author_id(*), category:category_id(*)')
+      .eq('id', bookId)
+      .single();
+    
+    if (error) throw error;
+    return data;
   } catch (error) {
     console.error(`Error fetching details for book ${bookId}:`, error);
-    return null; // Return null or throw error if book not found/error occurs
+    return null;
   }
 }
 
-// Updated function signature to use the local ReadingLevel type
 export async function getWordsByLevel(level: ReadingLevel, limit = 100) {
   try {
-    return await prisma.word.findMany({ // Changed from prisma.words
-      where: {
-        level, // Prisma should accept the string literal type here
-      },
-      take: limit,
-    });
+    const { data, error } = await supabase
+      .from('vocabulary')
+      .select('*')
+      .eq('level', level)
+      .limit(limit);
+    
+    if (error) throw error;
+    return data || [];
   } catch (error) {
     console.error(`Error fetching words for level ${level}:`, error);
     return [];
@@ -214,49 +161,37 @@ export async function getWordsByLevel(level: ReadingLevel, limit = 100) {
 
 export async function getDashboardStats() {
   try {
-    // Use Promise.all for concurrent counts
     const [userCount, bookCount, wordCount, activeReadingCount] = await Promise.all([
-      prisma.user.count(), // Changed from prisma.users
-      prisma.book.count(), // Changed from prisma.books
-      prisma.word.count(), // Changed from prisma.words
-      prisma.userProgress.count({
-        where: {
-          lastReadAt: {
-            gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), // Last 7 days
-          },
-        },
-      })
+      supabase.from('users').select('*', { count: 'exact', head: true }),
+      supabase.from('books').select('*', { count: 'exact', head: true }),
+      supabase.from('vocabulary').select('*', { count: 'exact', head: true }),
+      supabase.from('reading_progress')
+        .select('*', { count: 'exact', head: true })
+        .gt('last_read_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString())
     ]);
 
     return {
-      userCount,
-      bookCount,
-      wordCount,
-      activeReadingCount,
+      userCount: userCount.count || 0,
+      bookCount: bookCount.count || 0,
+      wordCount: wordCount.count || 0,
+      activeReadingCount: activeReadingCount.count || 0,
     };
   } catch (error) {
     console.error("Error fetching dashboard stats:", error);
-    // Return default/zero values or throw
     return { userCount: 0, bookCount: 0, wordCount: 0, activeReadingCount: 0 };
   }
 }
 
 export async function getPopularBooks(limit = 5) {
   try {
-    return await prisma.book.findMany({ // Changed from prisma.books
-      take: limit,
-      orderBy: {
-        // Consider ordering by likes or bookmarks as well/instead?
-        views: "desc",
-      },
-      include: {
-        author: true,
-        category: true, // Added category for potential display
-        _count: {
-          select: { likes: true, bookmarks: true }, // Count likes/bookmarks instead of progress
-        },
-      },
-    });
+    const { data, error } = await supabase
+      .from('books')
+      .select('*, author:author_id(*), category:category_id(*)')
+      .order('views', { ascending: false })
+      .limit(limit);
+    
+    if (error) throw error;
+    return data || [];
   } catch (error) {
     console.error("Error fetching popular books:", error);
     return [];
@@ -265,83 +200,45 @@ export async function getPopularBooks(limit = 5) {
 
 export async function getPopularWords(limit = 5) {
   try {
-    return await prisma.word.findMany({ // Changed from prisma.words
-      take: limit,
-      orderBy: {
-        searchCount: "desc", // Assuming searchCount reflects popularity
-      },
-    });
+    const { data, error } = await supabase
+      .from('vocabulary')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(limit);
+    
+    if (error) throw error;
+    return data || [];
   } catch (error) {
     console.error("Error fetching popular words:", error);
     return [];
   }
 }
 
-
-// Get book page with associated word positions and word data
 export async function getBookPageWithWords(bookId: string, pageNumber: number) {
-   // Define return type for clarity, using the local ReadingLevel type
-   type PageData = {
-       pageNumber: number;
-       content: string;
-       words: Array<{
-           id: string;
-           word: string;
-           meaning: string;
-           level: ReadingLevel; // Use local string literal type
-           startIndex: number;
-           endIndex: number;
-       }>;
-   } | null; // Function can return null if page not found
-
   try {
-    const page = await prisma.page.findUnique({
-      where: {
-        bookId_pageNumber: { bookId, pageNumber },
-      },
-      include: {
-        wordPositions: {
-          include: { word: true }, // Include the full word object
-          orderBy: { startIndex: 'asc' },
-        },
-      },
-    });
+    const { data: book, error: bookError } = await supabase
+      .from('books')
+      .select('*')
+      .eq('id', bookId)
+      .single();
 
-    if (!page) {
-      console.warn(`Page ${pageNumber} not found for book ${bookId}`);
-      return null;
-    }
+    if (bookError) throw bookError;
 
-    // Map the data to the desired structure for the BookReader component
-    // Define the type for 'position' inline
+    const { data: words, error: wordsError } = await supabase
+      .from('vocabulary')
+      .select('*')
+      .eq('book_id', bookId)
+      .order('created_at', { ascending: true });
+
+    if (wordsError) throw wordsError;
+
     return {
-      pageNumber: page.pageNumber,
-      content: page.content,
-      words: page.wordPositions.map((position: {
-          id: string; // from PageWordPosition itself
-          startIndex: number;
-          endIndex: number;
-          // pageId: string; // other fields from PageWordPosition if needed
-          // wordId: string;
-          word: { // from the included Word relation
-              id: string;
-              word: string;
-              meaning: string;
-              level: ReadingLevel; // Use local type
-              // Add other Word fields if needed (e.g., category, example)
-          };
-      }) => ({
-        id: position.word.id,
-        word: position.word.word,
-        meaning: position.word.meaning,
-        level: position.word.level, // Type should match now
-        startIndex: position.startIndex,
-        endIndex: position.endIndex,
-      })),
+      book,
+      words: words || [],
     };
   } catch (error) {
-      console.error(`Error fetching page ${pageNumber} for book ${bookId}:`, error);
-      throw new Error(`Failed to fetch page data.`);
+    console.error(`Error fetching book page with words for book ${bookId}:`, error);
+    return null;
   }
 }
 
@@ -357,7 +254,6 @@ export interface BookQueryResult {
   total: number
 }
 
-// This is a mock implementation. Replace with actual API calls in production.
 export async function getBooks({
   page = 1,
   category,
@@ -365,80 +261,55 @@ export async function getBooks({
   limit = 12,
 }: BookQueryParams): Promise<BookQueryResult> {
   try {
-    const skip = (page - 1) * limit;
-    
-    const where: BookWhereInput = {};
-    
+    let query = supabase
+      .from('books')
+      .select('*, author:author_id(*), category:category_id(*)', { count: 'exact' });
+
     if (category) {
-      where.category = { slug: category };
-    }
-    
-    if (search) {
-      where.OR = [
-        { title: { contains: search, mode: 'insensitive' } },
-        { author: { contains: search, mode: 'insensitive' } },
-      ];
+      query = query.eq('category.slug', category);
     }
 
-    const [books, total] = await Promise.all([
-      prisma.book.findMany({
-        where,
-        include: {
-          author: true,
-          category: true,
-        },
-        skip,
-        take: limit,
-        orderBy: {
-          createdAt: 'desc',
-        },
-      }),
-      prisma.book.count({ where }),
-    ]);
+    if (search) {
+      query = query.or(`title.ilike.%${search}%,author.name.ilike.%${search}%`);
+    }
+
+    const { data, error, count } = await query
+      .order('created_at', { ascending: false })
+      .range((page - 1) * limit, page * limit - 1);
+
+    if (error) throw error;
 
     return {
-      books: books.map((book: Book) => ({
-        id: book.id,
-        title: book.title,
-        author: book.author,
-        category: book.category,
-        coverImage: book.coverImage || '/images/book-placeholder.jpg',
-        rating: book.rating || 0,
-        createdAt: book.createdAt,
-        updatedAt: book.updatedAt,
-      })),
-      total,
+      books: data || [],
+      total: count || 0,
     };
   } catch (error) {
-    console.error('Error fetching books:', error);
-    throw error;
+    console.error("Error fetching books:", error);
+    return { books: [], total: 0 };
   }
 }
 
 export async function getCategory(slug: string): Promise<Category | null> {
   try {
-    const category = await prismaClient.category.findUnique({
-      where: { slug },
-      select: {
-        id: true,
-        name: true,
-        slug: true,
-        _count: {
-          select: { books: true },
-        },
-      },
-    });
-
-    if (!category) return null;
-
+    const { data, error } = await supabase
+      .from('categories')
+      .select('id, name, slug, books:books(count)')
+      .eq('slug', slug)
+      .single();
+    
+    if (error) throw error;
+    
     return {
-      id: category.id,
-      name: category.name,
-      slug: category.slug,
-      _count: category._count,
+      id: data.id,
+      name: data.name,
+      slug: data.slug,
+      created_at: new Date().toISOString(),
+      _count: {
+        books: data.books?.[0]?.count || 0
+      }
     };
   } catch (error) {
-    console.error("Error fetching category:", error);
+    console.error(`Error fetching category ${slug}:`, error);
     return null;
   }
 }

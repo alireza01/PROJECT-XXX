@@ -1,198 +1,108 @@
 // @/app/api/books/[id]/like/route.ts
-import { getAuthSession } from "@/lib/auth";
-import { prisma } from "@/lib/prisma-client";
+import { NextResponse } from "next/server";
 import { z } from "zod";
-import type { NextRequest } from 'next/server';
+import { prisma } from "@/lib/prisma-client";
+import { getAuthSession } from "@/lib/auth";
 
-// Validation schema for route parameters
-const routeParamsSchema = z.object({
-  id: z.string().uuid({ message: "Invalid book ID format" }),
+const bookIdSchema = z.object({
+  id: z.string().uuid()
 });
 
-/**
- * GET handler to check if the current user has liked a specific book
- * 
- * @param request - Standard Request object
- * @param params - Route parameters containing book id
- * @returns JSON response with isLiked status
- */
+// GET handler to check like status
 export async function GET(
-  request: NextRequest,
+  request: Request,
   { params }: { params: { id: string } }
 ) {
   try {
-    // Validate the book ID
-    const result = routeParamsSchema.safeParse(params);
-    if (!result.success) {
-      return Response.json(
-        { error: "Invalid book ID format" },
-        { status: 400 }
-      );
-    }
-
-    const bookId = params.id;
+    const { id } = bookIdSchema.parse(params);
     const session = await getAuthSession();
 
-    // If user is not logged in, return not liked
-    if (!session?.user) {
+    if (!session?.user?.id) {
       return Response.json({ isLiked: false });
     }
 
-    const userId = session.user.id;
-
-    // Check if the like exists for this user and book
     const like = await prisma.like.findUnique({
       where: {
         userId_bookId: {
-          userId,
-          bookId,
-        },
-      },
+          userId: session.user.id,
+          bookId: id
+        }
+      }
     });
 
     return Response.json({ isLiked: !!like });
   } catch (error) {
-    console.error("Error checking like status:", error);
+    console.error('Error checking like status:', error);
     return Response.json(
-      { error: "Failed to check like status" },
+      { error: 'Failed to check like status' },
       { status: 500 }
     );
   }
 }
 
-/**
- * POST handler to like a book
- * 
- * @param request - Standard Request object
- * @param params - Route parameters containing book id
- * @returns JSON response with success status
- */
+// POST handler to add a like
 export async function POST(
-  request: NextRequest,
+  request: Request,
   { params }: { params: { id: string } }
 ) {
   try {
-    // Validate the book ID
-    const result = routeParamsSchema.safeParse(params);
-    if (!result.success) {
-      return Response.json(
-        { error: "Invalid book ID format" },
-        { status: 400 }
-      );
-    }
-
-    const bookId = params.id;
+    const { id } = bookIdSchema.parse(params);
     const session = await getAuthSession();
 
-    if (!session?.user) {
+    if (!session?.user?.id) {
       return Response.json(
-        { error: "Unauthorized" },
+        { error: 'Unauthorized' },
         { status: 401 }
       );
     }
 
-    const userId = session.user.id;
-
-    // Check if like already exists
-    const existingLike = await prisma.like.findUnique({
-      where: {
-        userId_bookId: {
-          userId,
-          bookId,
-        },
-      },
-    });
-
-    if (existingLike) {
-      return Response.json(
-        { error: "Book already liked" },
-        { status: 400 }
-      );
-    }
-
-    // Create new like
-    await prisma.like.create({
+    const like = await prisma.like.create({
       data: {
-        userId,
-        bookId,
-      },
+        userId: session.user.id,
+        bookId: id
+      }
     });
 
-    return Response.json({ success: true });
+    return Response.json(like);
   } catch (error) {
-    console.error("Error liking book:", error);
+    console.error('Error liking book:', error);
     return Response.json(
-      { error: "Failed to like book" },
+      { error: 'Failed to like book' },
       { status: 500 }
     );
   }
 }
 
-/**
- * DELETE handler to unlike a book
- * 
- * @param request - Standard Request object
- * @param params - Route parameters containing book id
- * @returns JSON response with success status
- */
+// DELETE handler to remove a like
 export async function DELETE(
-  request: NextRequest,
+  request: Request,
   { params }: { params: { id: string } }
 ) {
   try {
-    // Validate the book ID
-    const result = routeParamsSchema.safeParse(params);
-    if (!result.success) {
-      return Response.json(
-        { error: "Invalid book ID format" },
-        { status: 400 }
-      );
-    }
-
-    const bookId = params.id;
+    const { id } = bookIdSchema.parse(params);
     const session = await getAuthSession();
 
-    if (!session?.user) {
+    if (!session?.user?.id) {
       return Response.json(
-        { error: "Unauthorized" },
+        { error: 'Unauthorized' },
         { status: 401 }
       );
     }
 
-    const userId = session.user.id;
-
-    // Check if like exists
-    const existingLike = await prisma.like.findUnique({
-      where: {
-        userId_bookId: {
-          userId,
-          bookId,
-        },
-      },
-    });
-
-    if (!existingLike) {
-      return Response.json(
-        { error: "Book not liked" },
-        { status: 400 }
-      );
-    }
-
-    // Delete the like
     await prisma.like.delete({
       where: {
         userId_bookId: {
-          userId,
-          bookId,
-        },
-      },
+          userId: session.user.id,
+          bookId: id
+        }
+      }
     });
 
     return Response.json({ success: true });
   } catch (error) {
-    console.error("Error unliking book:", error);
+    console.error('Error unliking book:', error);
     return Response.json(
-      { error: "Failed to unlike book" },
+      { error: 'Failed to unlike book' },
       { status: 500 }
     );
   }

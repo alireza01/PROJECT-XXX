@@ -1,7 +1,6 @@
 "use client"
 
 import type React from "react"
-
 import { useState } from "react"
 import { motion } from "framer-motion"
 import { Label } from "@/components/ui/label"
@@ -10,15 +9,26 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useToast } from "@/components/ui/use-toast"
 import { supabase } from "@/lib/supabase/client"
 import type { User as SupabaseUser } from "@supabase/supabase-js"
+import { Input } from "@/components/ui/input"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Loader2 } from "lucide-react"
+
+interface Profile {
+  id: string
+  name: string | null
+  level: 'beginner' | 'intermediate' | 'advanced'
+  avatar_url: string | null
+  updated_at: string | null
+}
 
 interface ProfileFormProps {
   user: SupabaseUser
-  profile: any
+  profile: Profile
 }
 
 export function ProfileForm({ user, profile }: ProfileFormProps) {
   const [name, setName] = useState(profile?.name || "")
-  const [level, setLevel] = useState(profile?.level || "intermediate")
+  const [level, setLevel] = useState<Profile['level']>(profile?.level || "intermediate")
   const [isLoading, setIsLoading] = useState(false)
   const [avatarUrl, setAvatarUrl] = useState(profile?.avatar_url || "")
   const { toast } = useToast()
@@ -32,23 +42,23 @@ export function ProfileForm({ user, profile }: ProfileFormProps) {
         .from("profiles")
         .upsert({
           id: user.id,
-          name,
+          name: name || null,
           level,
-          avatar_url: avatarUrl,
+          avatar_url: avatarUrl || null,
           updated_at: new Date().toISOString()
         })
       
       if (error) throw error
       
       toast({
-        title: "پروفایل به‌روزرسانی شد",
-        description: "تغییرات با موفقیت ذخیره شد",
+        title: "Profile Updated",
+        description: "Changes saved successfully",
         variant: "default",
       })
     } catch (error: any) {
       toast({
-        title: "خطا در به‌روزرسانی پروفایل",
-        description: error.message || "لطفاً دوباره تلاش کنید",
+        title: "Error Updating Profile",
+        description: error.message || "Please try again",
         variant: "destructive",
       })
     } finally {
@@ -63,8 +73,13 @@ export function ProfileForm({ user, profile }: ProfileFormProps) {
     setIsLoading(true)
     
     try {
-      // Upload file to storage
-      const fileExt = file.name.split('.').pop()
+      const fileExt = file.name.split('.').pop()?.toLowerCase()
+      const validExtensions = ['jpg', 'jpeg', 'png', 'gif']
+      
+      if (!fileExt || !validExtensions.includes(fileExt)) {
+        throw new Error('Selected file must be an image (jpg, jpeg, png, gif)')
+      }
+      
       const fileName = `${user.id}-${Math.random().toString(36).substring(2)}.${fileExt}`
       const filePath = `avatars/${fileName}`
       
@@ -74,20 +89,19 @@ export function ProfileForm({ user, profile }: ProfileFormProps) {
       
       if (uploadError) throw uploadError
       
-      // Get public URL
       const { data } = supabase.storage.from('avatars').getPublicUrl(filePath)
       
       setAvatarUrl(data.publicUrl)
       
       toast({
-        title: "تصویر پروفایل آپلود شد",
-        description: "تصویر با موفقیت آپلود شد. برای ذخیره تغییرات، فرم را ثبت کنید.",
+        title: "Profile Image Uploaded",
+        description: "Image uploaded successfully. Submit the form to save changes.",
         variant: "default",
       })
     } catch (error: any) {
       toast({
-        title: "خطا در آپلود تصویر",
-        description: error.message || "لطفاً دوباره تلاش کنید",
+        title: "Error Uploading Image",
+        description: error.message || "Please try again",
         variant: "destructive",
       })
     } finally {
@@ -103,9 +117,9 @@ export function ProfileForm({ user, profile }: ProfileFormProps) {
     >
       <Card className="border-gold-200 dark:border-gray-800 shadow-lg">
         <CardHeader>
-          <CardTitle className="text-gold-800 dark:text-gold-200">اطلاعات شخصی</CardTitle>
+          <CardTitle className="text-gold-800 dark:text-gold-200">Personal Information</CardTitle>
           <CardDescription className="text-gold-700 dark:text-gold-300">
-            اطلاعات پروفایل و تنظیمات خود را مدیریت کنید
+            Manage your profile information and settings
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -113,7 +127,7 @@ export function ProfileForm({ user, profile }: ProfileFormProps) {
             <div className="flex flex-col md:flex-row gap-6">
               <div className="flex flex-col items-center space-y-4">
                 <Avatar className="w-24 h-24 border-4 border-gold-200 dark:border-gray-800">
-                  <AvatarImage src={avatarUrl || "/placeholder.svg"} alt="تصویر پروفایل" />
+                  <AvatarImage src={avatarUrl || "/placeholder.svg"} alt="Profile Image" />
                   <AvatarFallback className="bg-gold-300 text-white text-2xl">
                     {name ? name.charAt(0).toUpperCase() : user.email?.charAt(0).toUpperCase() || "U"}
                   </AvatarFallback>
@@ -122,7 +136,67 @@ export function ProfileForm({ user, profile }: ProfileFormProps) {
                 <div className="flex items-center">
                   <Label
                     htmlFor="avatar-upload"
-                    className="cursor-pointer text-gold-400 hover:text-gold-500 dark:hover:text-gold-300 flex items-center gap-1 text-sm">
-                    آپلود تصویر
+                    className="cursor-pointer text-gold-400 hover:text-gold-500 dark:hover:text-gold-300 flex items-center gap-1 text-sm"
+                  >
+                    Upload Image
                   </Label>
-                </div>\
+                  <input
+                    id="avatar-upload"
+                    type="file"
+                    accept="image/*"
+                    onChange={handleAvatarUpload}
+                    className="hidden"
+                    disabled={isLoading}
+                  />
+                </div>
+              </div>
+              
+              <div className="flex-1 space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="name">Name</Label>
+                  <Input
+                    id="name"
+                    type="text"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    className="w-full"
+                    disabled={isLoading}
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="level">Level</Label>
+                  <Select
+                    value={level}
+                    onValueChange={(value: Profile['level']) => setLevel(value)}
+                    disabled={isLoading}
+                  >
+                    <SelectTrigger id="level">
+                      <SelectValue placeholder="Select Level" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="beginner">Beginner</SelectItem>
+                      <SelectItem value="intermediate">Intermediate</SelectItem>
+                      <SelectItem value="advanced">Advanced</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
+            
+            <div className="flex justify-end">
+              <button
+                type="submit"
+                disabled={isLoading}
+                className="px-4 py-2 bg-gold-500 text-white rounded-md hover:bg-gold-600 disabled:opacity-50 flex items-center gap-2"
+              >
+                {isLoading && <Loader2 className="h-4 w-4 animate-spin" />}
+                {isLoading ? "Saving..." : "Save Changes"}
+              </button>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
+    </motion.div>
+  )
+}

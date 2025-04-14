@@ -3,9 +3,11 @@
 import { revalidatePath } from "next/cache"
 import { redirect } from "next/navigation"
 import { z } from "zod"
-import { prisma } from "./prisma-client"
-import { getAuthSession } from "./auth"
-import type { WordStatus } from "@prisma/client"
+import { supabase } from './supabase'
+import type { Session } from '@supabase/supabase-js'
+
+// Define VocabularyLevel type
+export type VocabularyLevel = 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED'
 
 // Book schema for validation
 const bookSchema = z.object({
@@ -41,328 +43,345 @@ const pageWordPositionSchema = z.object({
   endIndex: z.number().int().positive(),
 })
 
+interface BookWithRelations {
+  id: string;
+  title: string;
+  author: any;
+  category: any;
+  pages: any[];
+  progress?: Array<{ current_page: number }>;
+  bookmarks?: any[];
+  likes?: any[];
+}
+
 // Update reading progress
 export async function updateReadingProgress(
   bookId: string,
   pageNumber: number,
   completionPercentage: number,
 ) {
-  const session = await getAuthSession()
-  if (!session?.user?.id) {
-    throw new Error("Unauthorized")
-  }
-
   try {
-    // Check if progress record exists
-    const existingProgress = await prisma.userProgress.findUnique({
-      where: {
-        userId_bookId: {
-          userId: session.user.id,
-          bookId,
-        },
-      },
-    })
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session?.user?.id) throw new Error("Not authenticated")
 
-    if (existingProgress) {
-      // Update existing progress
-      await prisma.userProgress.update({
-        where: {
-          userId_bookId: {
-            userId: session.user.id,
-            bookId,
-          },
-        },
-        data: {
-          currentPage: pageNumber,
-          completionPercentage,
-          updatedAt: new Date(),
-        },
+    const { data, error } = await supabase
+      .from('reading_progress')
+      .upsert({
+        user_id: session.user.id,
+        book_id: bookId,
+        current_page: pageNumber,
+        completion_percentage: completionPercentage,
+        updated_at: new Date().toISOString()
       })
-    } else {
-      // Create new progress record
-      await prisma.userProgress.create({
-        data: {
-          userId: session.user.id,
-          bookId,
-          currentPage: pageNumber,
-          completionPercentage,
-        },
-      })
-    }
+      .select()
+      .single()
 
-    // Increment book views
-    await prisma.book.update({
-      where: { id: bookId },
-      data: {
-        views: {
-          increment: 1,
-        },
-      },
-    })
-
-    revalidatePath(`/books/${bookId}/read`)
-    revalidatePath("/dashboard")
-    return { success: true }
+    if (error) throw error
+    revalidatePath(`/books/${bookId}`)
+    return data
   } catch (error) {
     console.error("Error updating reading progress:", error)
-    throw new Error("Failed to update reading progress")
+    throw error
   }
 }
 
 // Toggle bookmark
 export async function toggleBookmark(bookId: string) {
-  const session = await getAuthSession()
-  if (!session?.user?.id) {
-    throw new Error("Unauthorized")
-  }
-
   try {
-    // Check if bookmark exists
-    const existingBookmark = await prisma.bookmark.findUnique({
-      where: {
-        userId_bookId: {
-          userId: session.user.id,
-          bookId,
-        },
-      },
-    })
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session?.user?.id) throw new Error("Not authenticated")
+
+    const { data: existingBookmark, error: fetchError } = await supabase
+      .from('bookmarks')
+      .select()
+      .eq('user_id', session.user.id)
+      .eq('book_id', bookId)
+      .single()
+
+    if (fetchError && fetchError.code !== 'PGRST116') throw fetchError
 
     if (existingBookmark) {
-      // Remove bookmark
-      await prisma.bookmark.delete({
-        where: {
-          userId_bookId: {
-            userId: session.user.id,
-            bookId,
-          },
-        },
-      })
+      const { error: deleteError } = await supabase
+        .from('bookmarks')
+        .delete()
+        .eq('id', existingBookmark.id)
+      
+      if (deleteError) throw deleteError
       revalidatePath(`/books/${bookId}`)
-      revalidatePath("/dashboard")
-      revalidatePath("/library")
-      return { bookmarked: false }
+      return null
     } else {
-      // Add bookmark
-      await prisma.bookmark.create({
-        data: {
-          userId: session.user.id,
-          bookId,
-        },
-      })
+      const { data, error: insertError } = await supabase
+        .from('bookmarks')
+        .insert({
+          user_id: session.user.id,
+          book_id: bookId,
+          created_at: new Date().toISOString()
+        })
+        .select()
+        .single()
+
+      if (insertError) throw insertError
       revalidatePath(`/books/${bookId}`)
-      revalidatePath("/dashboard")
-      revalidatePath("/library")
-      return { bookmarked: true }
+      return data
     }
   } catch (error) {
     console.error("Error toggling bookmark:", error)
-    throw new Error("Failed to toggle bookmark")
+    throw error
   }
 }
 
 // Toggle like
 export async function toggleLike(bookId: string) {
-  const session = await getAuthSession()
-  if (!session?.user?.id) {
-    throw new Error("Unauthorized")
-  }
-
   try {
-    // Check if like exists
-    const existingLike = await prisma.like.findUnique({
-      where: {
-        userId_bookId: {
-          userId: session.user.id,
-          bookId,
-        },
-      },
-    })
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session?.user?.id) throw new Error("Not authenticated")
+
+    const { data: existingLike, error: fetchError } = await supabase
+      .from('likes')
+      .select()
+      .eq('user_id', session.user.id)
+      .eq('book_id', bookId)
+      .single()
+
+    if (fetchError && fetchError.code !== 'PGRST116') throw fetchError
 
     if (existingLike) {
-      // Remove like
-      await prisma.like.delete({
-        where: {
-          userId_bookId: {
-            userId: session.user.id,
-            bookId,
-          },
-        },
-      })
+      const { error: deleteError } = await supabase
+        .from('likes')
+        .delete()
+        .eq('id', existingLike.id)
+      
+      if (deleteError) throw deleteError
       revalidatePath(`/books/${bookId}`)
       return { liked: false }
     } else {
-      // Add like
-      await prisma.like.create({
-        data: {
-          userId: session.user.id,
-          bookId,
-        },
-      })
+      const { data, error: insertError } = await supabase
+        .from('likes')
+        .insert({
+          user_id: session.user.id,
+          book_id: bookId,
+          created_at: new Date().toISOString()
+        })
+        .select()
+        .single()
+
+      if (insertError) throw insertError
       revalidatePath(`/books/${bookId}`)
       return { liked: true }
     }
   } catch (error) {
     console.error("Error toggling like:", error)
-    throw new Error("Failed to toggle like")
-  }
-}
-
-// Get book page with words
-export async function getBookPageWithWords(bookId: string, pageNumber: number) {
-  try {
-    const page = await prisma.page.findFirst({
-      where: {
-        bookId,
-        pageNumber,
-      },
-      include: {
-        wordPositions: {
-          include: {
-            word: true,
-          },
-        },
-      },
-    })
-
-    if (!page) {
-      throw new Error("Page not found")
-    }
-
-    return {
-      id: page.id,
-      content: page.content,
-      pageNumber: page.pageNumber,
-      words: page.wordPositions.map((w) => ({
-        id: w.word.id,
-        word: w.word.word,
-        meaning: w.word.meaning,
-        level: w.word.level,
-        startIndex: w.startIndex,
-        endIndex: w.endIndex,
-      })),
-    }
-  } catch (error) {
-    console.error("Error getting book page with words:", error)
-    throw new Error("Failed to get book page with words")
+    throw error
   }
 }
 
 // Get book with current page
 export async function getBookWithCurrentPage(bookId: string) {
-  const session = await getAuthSession()
-  const userId = session?.user?.id
-
   try {
-    const book = await prisma.book.findUnique({
-      where: { id: bookId },
-      include: {
-        author: true,
-        category: true,
-        pages: {
-          orderBy: { pageNumber: "asc" },
-        },
-        ...(userId
-          ? {
-              progress: {
-                where: { userId },
-              },
-              bookmarks: {
-                where: { userId },
-              },
-              likes: {
-                where: { userId },
-              },
-            }
-          : {}),
-      },
-    })
+    const { data: { session } } = await supabase.auth.getSession()
+    const userId = session?.user?.id
 
-    if (!book) {
-      throw new Error("Book not found")
-    }
+    const baseQuery = `
+      id,
+      title,
+      author:authors(*),
+      category:categories(*),
+      pages:book_pages(*)
+    `
+
+    const userQuery = userId ? `
+      ${baseQuery},
+      progress:reading_progress(current_page),
+      bookmarks:bookmarks(*),
+      likes:likes(*)
+    ` : baseQuery
+
+    const { data: book, error: bookError } = await supabase
+      .from('books')
+      .select(userQuery)
+      .eq('id', bookId)
+      .single()
+
+    if (bookError) throw bookError
+    if (!book) throw new Error("Book not found")
+
+    // Type assertion with unknown as intermediate step
+    const typedBook = book as unknown as BookWithRelations
 
     // Get current page from reading progress or default to first page
-    const currentPage =
-      userId && book.progress?.[0]
-        ? book.progress[0].currentPage
-        : 1
+    const currentPage = userId && typedBook.progress?.[0]
+      ? typedBook.progress[0].current_page
+      : 1
 
     return {
-      ...book,
+      ...typedBook,
       currentPage,
-      isBookmarked: userId ? book.bookmarks?.[0] !== undefined : false,
-      isLiked: userId ? book.likes?.[0] !== undefined : false,
+      isBookmarked: userId ? (typedBook.bookmarks || []).length > 0 : false,
+      isLiked: userId ? (typedBook.likes || []).length > 0 : false,
     }
   } catch (error) {
     console.error("Error getting book with current page:", error)
-    throw new Error("Failed to get book with current page")
+    throw error
   }
 }
 
 // Update word progress
-export async function updateWordProgress(wordId: string, status: WordStatus) {
-  const session = await getAuthSession()
-  if (!session?.user?.id) {
-    throw new Error("Unauthorized")
-  }
-
+export async function updateWordProgress(wordId: string, status: 'LEARNED' | 'REVIEWING' | 'NEW') {
   try {
-    // Check if word progress exists
-    const existingProgress = await prisma.userWordProgress.findUnique({
-      where: {
-        userId_wordId: {
-          userId: session.user.id,
-          wordId,
-        },
-      },
-    })
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.user?.id) throw new Error("Not authenticated");
 
-    if (existingProgress) {
-      // Update existing progress
-      await prisma.userWordProgress.update({
-        where: {
-          userId_wordId: {
-            userId: session.user.id,
-            wordId,
-          },
-        },
-        data: {
-          status,
-          updatedAt: new Date(),
-        },
+    const { data, error } = await supabase
+      .from('word_progress')
+      .upsert({
+        user_id: session.user.id,
+        word_id: wordId,
+        status,
+        updated_at: new Date().toISOString()
       })
-    } else {
-      // Create new progress record
-      await prisma.userWordProgress.create({
-        data: {
-          userId: session.user.id,
-          wordId,
-          status,
-        },
-      })
-    }
+      .select()
+      .single();
 
-    revalidatePath("/vocabulary")
-    return { success: true }
+    if (error) throw error;
+    revalidatePath('/vocabulary');
+    return data;
   } catch (error) {
-    console.error("Error updating word progress:", error)
-    throw new Error("Failed to update word progress")
+    console.error("Error updating word progress:", error);
+    throw error;
   }
 }
 
 // Increment word search count
 export async function incrementWordSearchCount(wordId: string) {
   try {
-    await prisma.word.update({
-      where: { id: wordId },
-      data: {
-        searchCount: {
-          increment: 1,
-        },
+    await supabase.from('words').update({
+      searchCount: {
+        increment: 1,
       },
-    })
+    }).eq('id', wordId)
   } catch (error) {
     console.error("Error incrementing word search count:", error)
     throw new Error("Failed to increment word search count")
+  }
+}
+
+export async function updateUserProgress(
+  userId: string,
+  bookId: string,
+  progress: number
+) {
+  const { data, error } = await supabase
+    .from('reading_progress')
+    .upsert({
+      userId,
+      bookId,
+      progress,
+      updatedAt: new Date().toISOString(),
+    })
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
+export async function createBookmark(
+  userId: string,
+  bookId: string,
+  position: number
+) {
+  const { data, error } = await supabase
+    .from('bookmarks')
+    .insert([{
+      userId,
+      bookId,
+      position,
+      createdAt: new Date().toISOString(),
+    }])
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
+export async function deleteBookmark(id: string) {
+  const { error } = await supabase
+    .from('bookmarks')
+    .delete()
+    .eq('id', id);
+
+  if (error) throw error;
+}
+
+export async function createHighlight(
+  userId: string,
+  bookId: string,
+  text: string
+) {
+  const { data, error } = await supabase
+    .from('highlights')
+    .insert([{
+      userId,
+      bookId,
+      text,
+      createdAt: new Date().toISOString(),
+    }])
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
+export async function createNote(
+  userId: string,
+  bookId: string,
+  text: string,
+  note: string
+) {
+  const { data, error } = await supabase
+    .from('notes')
+    .insert([{
+      userId,
+      bookId,
+      text,
+      note,
+      createdAt: new Date().toISOString(),
+    }])
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
+// Update vocabulary
+export async function updateVocabulary(
+  id: string,
+  updates: Partial<{
+    word: string;
+    meaning: string;
+    explanation: string;
+    level: VocabularyLevel;
+  }>
+) {
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.user?.id) throw new Error("Not authenticated");
+
+    const { data, error } = await supabase
+      .from('vocabulary')
+      .update(updates)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    revalidatePath('/vocabulary');
+    return data;
+  } catch (error) {
+    console.error("Error updating vocabulary:", error);
+    throw error;
   }
 } 

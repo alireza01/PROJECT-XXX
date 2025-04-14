@@ -16,7 +16,8 @@ export function Pagination({ currentPage, totalPages, baseUrl }: PaginationProps
   const searchParams = useSearchParams()
 
   const createPageURL = (pageNumber: number | string) => {
-    const params = new URLSearchParams(searchParams)
+    if (!searchParams) return `${baseUrl}?page=${pageNumber}`
+    const params = new URLSearchParams(searchParams.toString())
     params.set("page", pageNumber.toString())
     return `${baseUrl}?${params.toString()}`
   }

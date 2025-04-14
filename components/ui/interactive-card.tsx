@@ -1,10 +1,10 @@
 "use client"
 
-import { motion } from "framer-motion"
+import { motion, HTMLMotionProps } from "framer-motion"
 import { cn } from "@/lib/utils"
 import { hoverScale, hoverLift, hoverGlow } from "@/lib/animations"
 
-interface InteractiveCardProps extends React.HTMLAttributes<HTMLDivElement> {
+interface InteractiveCardProps extends Omit<HTMLMotionProps<"div">, "children"> {
   children: React.ReactNode
   className?: string
   scale?: boolean

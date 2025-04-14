@@ -11,8 +11,9 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/co
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { WordTooltip } from "./word-tooltip"
 import { useSwipeable } from 'react-swipeable'
-import { cn } from '@/lib/utils'
-import { Book, VocabularyLevel } from '@/types'
+import { cn, processVocabulary } from '@/lib/utils'
+import { Book } from '@/types/supabase'
+import { VocabularyLevel } from '@/types/vocabulary'
 import { useKeyboardShortcuts } from '@/hooks/use-keyboard-shortcuts'
 import { VocabularyTooltip } from './vocabulary-tooltip'
 import { ReadingProgress } from './reading-progress'
@@ -35,7 +36,12 @@ export function BookReader({
   const [highlightedWords, setHighlightedWords] = useState<Set<string>>(new Set())
   const readerRef = useRef<HTMLDivElement>(null)
   const [selectedWord, setSelectedWord] = useState<string | null>(null)
-  const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 })
+  const [tooltipPosition, setTooltipPosition] = useState<{ x: number; y: number }>({ x: 0, y: 0 })
+  const [isRefreshing, setIsRefreshing] = useState(false)
+  const contentRef = useRef<HTMLDivElement>(null)
+
+  // Convert book level to VocabularyLevel
+  const bookLevel = book.level.toLowerCase() as VocabularyLevel
 
   // Handle keyboard navigation
   useKeyboardShortcuts({
@@ -44,10 +50,9 @@ export function BookReader({
   })
 
   // Handle swipe gestures
-  const swipeHandlers = useSwipeable({
+  const handlers = useSwipeable({
     onSwipedLeft: () => onPageChange(currentPage + 1),
     onSwipedRight: () => onPageChange(currentPage - 1),
-    preventDefaultTouchmoveEvent: true,
     trackMouse: true,
   })
 
@@ -70,24 +75,25 @@ export function BookReader({
   }, [book.content, userLevel])
 
   const handleWordClick = (word: string, event: React.MouseEvent) => {
-    const rect = event.currentTarget.getBoundingClientRect()
-    setTooltipPosition({
-      x: rect.left + window.scrollX,
-      y: rect.top + window.scrollY + rect.height,
-    })
+    const rect = (event.target as HTMLElement).getBoundingClientRect()
     setSelectedWord(word)
+    setTooltipPosition({
+      x: rect.left + rect.width / 2,
+      y: rect.top,
+    })
   }
 
   const handleCloseTooltip = () => {
     setSelectedWord(null)
+    setTooltipPosition({ x: 0, y: 0 })
   }
 
   const getWordLevel = (word: string): VocabularyLevel => {
-    // This would be replaced with actual logic to determine word level
-    // For now, we'll use a simple example
-    if (word.length < 5) return "beginner"
-    if (word.length < 8) return "intermediate"
-    return "advanced"
+    // Simple implementation based on word length
+    const length = word.length;
+    if (length <= 5) return "beginner";
+    if (length <= 8) return "intermediate";
+    return "advanced";
   }
 
   const renderContent = (content: string) => {
@@ -95,7 +101,7 @@ export function BookReader({
     return words.map((word, index) => {
       const isHighlighted = highlightedWords.has(word.toLowerCase())
       const level = getWordLevel(word)
-      const isVocabulary = book.vocabulary.includes(word)
+      const isVocabulary = book.vocabulary?.includes(word) || false
       return (
         <span
           key={`${word}-${index}`}
@@ -107,7 +113,7 @@ export function BookReader({
           onClick={(e) => handleWordClick(word, e)}
         >
           {isHighlighted ? (
-            <VocabularyTooltip word={word} level={level} position={tooltipPosition} onClose={handleCloseTooltip} userLevel={userLevel}>
+            <VocabularyTooltip word={word} level={level} position={tooltipPosition} onClose={handleCloseTooltip} userLevel={bookLevel}>
               {word}
             </VocabularyTooltip>
           ) : (
@@ -129,15 +135,14 @@ export function BookReader({
           exit={{ opacity: 0, x: -20 }}
           transition={{ duration: 0.3 }}
           className="absolute inset-0 overflow-y-auto p-8"
-          ref={readerRef}
-          {...swipeHandlers}
+          {...handlers}
         >
           {isLoading ? (
             <div className="flex items-center justify-center h-full">
               <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500" />
             </div>
           ) : (
-            <div className="prose prose-lg max-w-3xl mx-auto">
+            <div className="prose prose-lg max-w-3xl mx-auto" ref={readerRef}>
               {renderContent(book.content)}
             </div>
           )}
@@ -146,16 +151,16 @@ export function BookReader({
 
       <ReadingProgress
         currentPage={currentPage}
-        totalPages={book.totalPages}
+        totalPages={book.totalPages || 1}
       />
 
       <PageControls
         currentPage={currentPage}
-        totalPages={book.totalPages}
+        totalPages={book.totalPages || 1}
         onPageChange={onPageChange}
       />
 
-      {selectedWord && (
+      {selectedWord && tooltipPosition && (
         <VocabularyTooltip
           word={selectedWord}
           level={getWordLevel(selectedWord)}
