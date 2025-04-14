@@ -1,15 +1,17 @@
 // @/lib/auth.ts
 import { PrismaAdapter } from "@next-auth/prisma-adapter"
-import type { DefaultSession, NextAuthOptions } from "next-auth"
-import { getServerSession } from "next-auth/next"
-import CredentialsProvider from "next-auth/providers/credentials"
-import GoogleProvider from "next-auth/providers/google"
-import { prisma } from "@/lib/prisma-client"
+import { NextAuthOptions } from "next-auth"
+import { prisma } from "@/lib/db"
 import { compare } from "bcryptjs"
+import CredentialsProvider from "next-auth/providers/credentials"
 import { z } from "zod"
+import { DefaultSession } from "next-auth"
+import { JWT } from "next-auth/jwt"
+import { User } from "@prisma/client"
 import { supabase } from "@/lib/supabase/client"
 import { cookies } from "next/headers"
 import { NextResponse } from "next/server"
+import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/app/api/auth/[...nextauth]/route"
 
 // Define custom error types
@@ -77,7 +79,8 @@ const credentialsSchema = z.object({
   password: z.string().min(1, "Password is required"),
 })
 
-export const authOptions: NextAuthOptions = {
+// Export the auth configuration
+export const authConfig: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
   session: {
     strategy: "jwt",
@@ -87,10 +90,6 @@ export const authOptions: NextAuthOptions = {
     error: "/auth/error",
   },
   providers: [
-    GoogleProvider({
-      clientId: process.env.GOOGLE_CLIENT_ID!,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-    }),
     CredentialsProvider({
       name: "credentials",
       credentials: {
@@ -201,7 +200,7 @@ export const authOptions: NextAuthOptions = {
   },
 }
 
-export const getAuthSession = () => getServerSession(authOptions)
+export const getAuthSession = () => getServerSession(authConfig)
 
 export interface User {
   id: string
@@ -375,6 +374,6 @@ export async function getUserById(userId: string) {
 }
 
 export const auth = async () => {
-  const session = await getServerSession(authOptions);
+  const session = await getServerSession(authConfig);
   return session;
 };

@@ -126,6 +126,7 @@ model Book {
   bookmarks       Bookmark[]
   highlights      Highlight[]
   notes           Note[]
+  vocabulary      Vocabulary[]
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 }
