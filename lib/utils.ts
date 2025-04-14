@@ -1,6 +1,5 @@
 import { type ClassValue, clsx } from "clsx"
 import { twMerge } from "tailwind-merge"
-import { createDebouncedFunction } from "./debounce"
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -27,14 +26,6 @@ export function processVocabulary(text: string, level: 'beginner' | 'intermediat
 export function formatPageNumber(page: number): string {
   return page.toString().padStart(3, '0')
 }
-
-// Re-export the debounce function with a simpler interface
-export const debounce = <T extends (...args: any[]) => any>(
-  func: T,
-  wait: number
-): (...args: Parameters<T>) => void => {
-  return createDebouncedFunction(func, wait);
-};
 
 export function formatDate(date: Date | string): string {
   const d = new Date(date)
