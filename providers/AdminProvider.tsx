@@ -1,3 +1,5 @@
+'use client';
+
 import { createContext, useContext, useState, ReactNode, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
