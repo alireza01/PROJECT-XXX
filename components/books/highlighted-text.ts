@@ -1,100 +1,93 @@
 "use client"
 
-import { useState, useCallback } from 'react'
+import React from 'react'
 import { Word } from '@prisma/client'
 import { WordExplanationModal } from './word-explanation-modal'
 
-interface BookWordPosition {
+interface WordPosition {
   id: string
-  startOffset: number
-  endOffset: number
+  start: number
+  end: number
   explanationId: string
-  word: Word
-  explanation: {
-    id: string
-    persianMeaning: string
-    explanation: string | null
-    example: string | null
-  }
 }
 
 interface HighlightedTextProps {
   content: string
-  wordPositions: BookWordPosition[]
+  wordPositions: WordPosition[]
 }
 
 export function HighlightedText({ content, wordPositions }: HighlightedTextProps) {
-  const [selectedWord, setSelectedWord] = useState<BookWordPosition | null>(null)
-  const [isModalOpen, setIsModalOpen] = useState(false)
+  const [selectedWord, setSelectedWord] = React.useState<{
+    word: string
+    explanation: any
+  } | null>(null)
 
-  // Sort word positions by start offset to process them in order
-  const sortedPositions = [...wordPositions].sort((a, b) => a.startOffset - b.startOffset)
-  
-  // Handle word click
-  const handleWordClick = useCallback((wordPosition: BookWordPosition) => {
-    setSelectedWord(wordPosition)
-    setIsModalOpen(true)
-  }, [])
+  const handleWordClick = (position: WordPosition) => {
+    const word = content.slice(position.start, position.end)
+    // Fetch explanation from API or use existing data
+    setSelectedWord({
+      word,
+      explanation: {
+        persianMeaning: 'معنی فارسی',
+        englishMeaning: 'English meaning',
+        example: 'Example sentence',
+      },
+    })
+  }
 
-  // Close the explanation modal
-  const closeModal = useCallback(() => {
-    setIsModalOpen(false)
-  }, [])
+  const renderContent = () => {
+    if (!wordPositions.length) {
+      return <span>{content}</span>
+    }
 
-  // Generate the text segments with highlighted words
-  const renderTextSegments = () => {
-    const segments = []
+    const elements: React.ReactNode[] = []
     let lastEnd = 0
-    
-    // Process each word position in order
-    for (const position of sortedPositions) {
-      // Add the text before this word
-      if (position.startOffset > lastEnd) {
-        segments.push(
+
+    wordPositions.forEach((position) => {
+      // Add text before the word
+      if (position.start > lastEnd) {
+        elements.push(
           <span key={`text-${lastEnd}`}>
-            {content.slice(lastEnd, position.startOffset)}
+            {content.slice(lastEnd, position.start)}
           </span>
         )
       }
-      
+
       // Add the highlighted word
-      segments.push(
+      elements.push(
         <span
           key={`word-${position.id}`}
-          className="cursor-pointer rounded px-0.5 bg-yellow-200 hover:bg-yellow-300 dark:bg-yellow-900 dark:hover:bg-yellow-800"
+          className="text-primary cursor-pointer hover:underline"
           onClick={() => handleWordClick(position)}
           data-explanation-id={position.explanationId}
         >
-          {content.slice(position.startOffset, position.endOffset)}
+          {content.slice(position.start, position.end)}
         </span>
       )
-      
-      lastEnd = position.endOffset
-    }
-    
-    // Add any remaining text
+
+      lastEnd = position.end
+    })
+
+    // Add remaining text
     if (lastEnd < content.length) {
-      segments.push(
+      elements.push(
         <span key={`text-${lastEnd}`}>
           {content.slice(lastEnd)}
         </span>
       )
     }
-    
-    return segments
+
+    return elements
   }
-  
+
   return (
     <div className="text-lg leading-relaxed">
-      {renderTextSegments()}
-      
-      {/* Word explanation modal */}
+      {renderContent()}
       {selectedWord && (
         <WordExplanationModal
           word={selectedWord.word}
           explanation={selectedWord.explanation}
-          isOpen={isModalOpen}
-          onClose={closeModal}
+          onClose={() => setSelectedWord(null)}
         />
       )}
     </div>

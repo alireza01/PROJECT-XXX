@@ -1,5 +1,6 @@
 "use client"
 
+import React from 'react'
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { ChevronLeft, ChevronRight, BookOpen, Bookmark, Settings } from 'lucide-react'
