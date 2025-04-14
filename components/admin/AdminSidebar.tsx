@@ -3,7 +3,6 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { motion } from 'framer-motion'
 import { 
   BookOpen, 
   Users, 
@@ -14,6 +13,8 @@ import {
   ChevronLeft,
   ChevronRight
 } from 'lucide-react'
+import { MotionDiv, MotionSpan } from '../motion/ClientMotion'
+import { useAdmin } from '@/hooks/useAdmin'
 
 const menuItems = [
   { name: 'داشبورد', href: '/admin/dashboard', icon: BarChart2 },
@@ -29,20 +30,20 @@ export function AdminSidebar() {
   const { logout } = useAdmin()
 
   return (
-    <motion.div
+    <MotionDiv
       initial={{ width: 280 }}
       animate={{ width: isCollapsed ? 80 : 280 }}
       className="bg-white dark:bg-gray-800 shadow-lg h-full flex flex-col"
     >
       <div className="p-4 flex items-center justify-between">
         {!isCollapsed && (
-          <motion.h1 
+          <MotionSpan
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             className="text-xl font-bold text-gray-800 dark:text-white"
           >
             پنل مدیریت
-          </motion.h1>
+          </MotionSpan>
         )}
         <button
           onClick={() => setIsCollapsed(!isCollapsed)}
@@ -69,13 +70,13 @@ export function AdminSidebar() {
             >
               <Icon className="w-5 h-5" />
               {!isCollapsed && (
-                <motion.span
+                <MotionSpan
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
                   className="mr-3"
                 >
                   {item.name}
-                </motion.span>
+                </MotionSpan>
               )}
             </Link>
           )
@@ -89,16 +90,16 @@ export function AdminSidebar() {
         >
           <LogOut className="w-5 h-5" />
           {!isCollapsed && (
-            <motion.span
+            <MotionSpan
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               className="mr-3"
             >
               خروج
-            </motion.span>
+            </MotionSpan>
           )}
         </button>
       </div>
-    </motion.div>
+    </MotionDiv>
   )
 } 
