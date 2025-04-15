@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/sidebar"
 import { redirect } from "next/navigation"
 import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
+import { authOptions } from "@/lib/auth-options"
 import { AdminNav } from "@/components/admin/admin-nav"
 
 import { useState } from "react"

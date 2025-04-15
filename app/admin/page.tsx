@@ -4,7 +4,7 @@ import { ApiKeyManager } from '@/components/admin/ApiKeyManager';
 import { ErrorLogViewer } from '@/components/admin/ErrorLogViewer';
 import { TranslationPromptManager } from '@/components/admin/TranslationPromptManager';
 import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import { authOptions } from '@/lib/auth-options';
 import { redirect } from 'next/navigation';
 
 export const metadata: Metadata = {

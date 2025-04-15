@@ -1,7 +1,7 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { ApiKeyManager } from './api-key-manager';
 import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import { authOptions } from '@/lib/auth-options';
 import { supabase } from '@/lib/supabase';
 import { logError, logInfo } from '@/lib/logger';
 

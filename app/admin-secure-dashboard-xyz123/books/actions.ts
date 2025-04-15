@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache"
 import { prisma } from "@/lib/prisma-client"
 import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
+import { authOptions } from "@/lib/auth-options"
 import { redirect } from "next/navigation"
 
 export async function createBook(formData: FormData) {
