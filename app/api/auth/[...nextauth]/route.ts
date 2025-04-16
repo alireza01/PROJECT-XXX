@@ -4,7 +4,7 @@ import { compare } from 'bcryptjs'
 import { getUserByEmail } from '@/lib/supabase'
 import { JWT } from 'next-auth/jwt'
 
-export const authOptions: AuthOptions = {
+const authOptions: AuthOptions = {
   providers: [
     CredentialsProvider({
       name: 'Credentials',
@@ -48,6 +48,7 @@ export const authOptions: AuthOptions = {
   },
   session: {
     strategy: 'jwt' as const,
+    maxAge: 30 * 24 * 60 * 60, // 30 days
   },
   callbacks: {
     async jwt({ token, user }: { token: JWT; user: User | undefined }) {
