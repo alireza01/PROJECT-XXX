@@ -1,10 +1,11 @@
 "use client"
 
 import * as React from "react"
-import Image, { ImageProps } from "next/image"
+import Image from "next/image"
+import type { StaticImageData } from "next/image"
 import { cn } from "@/lib/utils"
 
-interface OptimizedImageProps extends Omit<ImageProps, "alt"> {
+interface OptimizedImageProps extends Omit<React.ComponentProps<typeof Image>, "alt"> {
   alt: string
   fallback?: string
   aspectRatio?: number

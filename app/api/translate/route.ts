@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import type { NextResponse as NextResponseType } from 'next/server';
 import { translateText } from '@/lib/services/translation';
 import { getBookContent } from '@/lib/services/books';
-import { prisma } from '@/lib/db';
+import { prisma } from '@/lib/prisma-client';
 
 export async function POST(request: Request) {
   try {

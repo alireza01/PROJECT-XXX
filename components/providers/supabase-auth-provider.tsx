@@ -1,10 +1,22 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { createContext, useContext, useEffect, useState } from "react"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import { useRouter } from "next/navigation"
 
-export function useSupabaseAuth() {
+type SupabaseAuthContextType = {
+  user: any
+  loading: boolean
+  isLoading: boolean
+  signIn: (email: string, password: string) => Promise<void>
+  signUp: (email: string, password: string) => Promise<void>
+  signOut: () => Promise<void>
+  signInWithGoogle: () => Promise<void>
+}
+
+const SupabaseAuthContext = createContext<SupabaseAuthContextType | undefined>(undefined)
+
+export function SupabaseAuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const supabase = createClientComponentClient()
@@ -65,7 +77,7 @@ export function useSupabaseAuth() {
     if (error) throw error
   }
 
-  return {
+  const value = {
     user,
     loading,
     isLoading: loading,
@@ -74,4 +86,18 @@ export function useSupabaseAuth() {
     signOut,
     signInWithGoogle
   }
+
+  return (
+    <SupabaseAuthContext.Provider value={value}>
+      {children}
+    </SupabaseAuthContext.Provider>
+  )
+}
+
+export function useSupabaseAuth() {
+  const context = useContext(SupabaseAuthContext)
+  if (context === undefined) {
+    throw new Error('useSupabaseAuth must be used within a SupabaseAuthProvider')
+  }
+  return context
 } 

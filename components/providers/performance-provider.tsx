@@ -27,7 +27,7 @@ export default function PerformanceProvider({ children }: Props) {
       const loadTime = Date.now() - startTimeRef.current;
       
       // Track page performance
-      trackPagePerformance(currentPath, loadTime);
+      trackPagePerformance(currentPath, { loadTime });
       
       // Track navigation event
       trackUserInteraction("page_navigation", {

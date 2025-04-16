@@ -10,7 +10,8 @@ export default async function middleware(request: NextRequestWithAuth) {
     return NextResponse.redirect(new URL('/', request.url));
   }
 
-  return NextResponse.next();
+  // Instead of using NextResponse.next(), we'll just return the request
+  return request;
 }
 
 export const config = {

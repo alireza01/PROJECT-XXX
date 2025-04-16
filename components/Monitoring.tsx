@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { trackMetric, trackUserInteraction } from '@/lib/monitoring';
+import { trackMetric, trackUserInteraction } from '../lib/monitoring';
 
 export const Monitoring: React.FC = () => {
   React.useEffect(() => {

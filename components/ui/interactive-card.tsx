@@ -1,10 +1,10 @@
 "use client"
 
-import { motion, HTMLMotionProps } from "framer-motion"
+import { motion } from "framer-motion"
 import { cn } from "@/lib/utils"
 import { hoverScale, hoverLift, hoverGlow } from "@/lib/animations"
 
-interface InteractiveCardProps extends Omit<HTMLMotionProps<"div">, "children"> {
+interface InteractiveCardProps extends React.HTMLAttributes<HTMLDivElement> {
   children: React.ReactNode
   className?: string
   scale?: boolean
@@ -20,19 +20,15 @@ export function InteractiveCard({
   glow = true,
   ...props
 }: InteractiveCardProps) {
-  const variants = {
-    ...(scale && hoverScale),
-    ...(lift && hoverLift),
-    ...(glow && hoverGlow),
-  }
-
   return (
     <motion.div
-      variants={variants}
       className={cn(
-        "rounded-lg border border-gold-200 bg-white p-4 shadow-sm transition-colors dark:border-gray-800 dark:bg-gray-900",
+        "relative overflow-hidden rounded-lg border bg-card text-card-foreground shadow-sm transition-all",
         className
       )}
+      whileHover={scale ? hoverScale : undefined}
+      animate={lift ? hoverLift : undefined}
+      style={glow ? hoverGlow : undefined}
       {...props}
     >
       {children}

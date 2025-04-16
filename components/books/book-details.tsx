@@ -27,6 +27,13 @@ interface ReviewData {
   book_id: string
 }
 
+interface TagData {
+  tag: {
+    id: string
+    name: string
+  }[]
+}
+
 interface BookData {
   id: string
   title: string
@@ -149,7 +156,9 @@ export function BookDetails({ id }: BookDetailsProps) {
             tag:tag_id(id, name)
           `)
           .eq("book_id", bookData?.id)
-
+        
+        console.log('Tags Data:', JSON.stringify(tagsData, null, 2))
+        
         if (tagsError) throw tagsError
 
         // Check if user has bookmarked this book
@@ -184,8 +193,8 @@ export function BookDetails({ id }: BookDetailsProps) {
           id: bookData.id,
           title: bookData.title,
           author: {
-            id: bookData.author[0]?.id ?? "",
-            name: bookData.author[0]?.name ?? ""
+            id: bookData.author?.[0]?.id ?? "",
+            name: bookData.author?.[0]?.name ?? ""
           },
           description: bookData.description,
           cover_image: bookData.cover_image,
@@ -199,10 +208,10 @@ export function BookDetails({ id }: BookDetailsProps) {
           free_pages: bookData.free_pages,
           read_time: bookData.read_time,
           category: {
-            id: bookData.category[0]?.id ?? "",
-            name: bookData.category[0]?.name ?? ""
+            id: bookData.category?.[0]?.id ?? "",
+            name: bookData.category?.[0]?.name ?? ""
           },
-          tags: tagsData?.map(tag => tag.tag.name) ?? [],
+          tags: Array.isArray(tagsData) ? tagsData.flatMap(tagData => tagData.tag?.map(t => t.name) || []).filter(Boolean) : [],
           rating: avgRating,
           reviewCount: reviewsData?.length ?? 0,
           is_liked: false,
@@ -220,7 +229,7 @@ export function BookDetails({ id }: BookDetailsProps) {
           comment: review.comment,
           created_at: review.created_at,
           user: {
-            email: review.user?.email ?? ""
+            email: review.user && Array.isArray(review.user) && review.user.length > 0 ? review.user[0].email : ""
           }
         }))
 
@@ -365,9 +374,9 @@ export function BookDetails({ id }: BookDetailsProps) {
                     نسخه رایگان
                   </Badge>
                 )}
-                {book?.discount_percentage > 0 && (
+                {book?.discount_percentage && book.discount_percentage > 0 && (
                   <Badge className="bg-red-500 hover:bg-red-600 text-white border-none">
-                    {book?.discount_percentage}٪ تخفیف
+                    {book.discount_percentage}٪ تخفیف
                   </Badge>
                 )}
               </div>

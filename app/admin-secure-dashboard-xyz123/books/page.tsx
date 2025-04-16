@@ -18,25 +18,24 @@ export interface Book {
   // Add any other relevant fields returned by getBooks()
 }
 
+interface BooksResponse {
+  data: Book[];
+}
 
 // This is the main Server Component for the page
 export default async function BooksPage() {
   // Fetch books on the server
   let books: Book[] = [];
   try {
-    // Assuming getBooks returns { data: Book[] } or similar structure
-    const result = await getBooks(); // Adjust based on actual getBooks implementation
+    const result = await getBooks() as Book[] | BooksResponse;
 
-    // More robust check for fetched data
-     if (result && Array.isArray(result)) {
-       books = result;
-     } else if (result && Array.isArray(result.data)) {
-       // Handle cases where data is nested, e.g., { data: [...] }
-       books = result.data;
-     } else {
-       console.warn("Fetched books data is not in the expected array format:", result);
-       // Proceed with empty array, but log a warning
-     }
+    if (Array.isArray(result)) {
+      books = result;
+    } else if (result && 'data' in result) {
+      books = result.data;
+    } else {
+      console.warn("Fetched books data is not in the expected array format:", result);
+    }
   } catch (error) {
     console.error("Error fetching books:", error);
     // Render an error message or fallback UI if desired

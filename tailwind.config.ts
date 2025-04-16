@@ -1,4 +1,7 @@
 import type { Config } from "tailwindcss"
+import { fontFamily } from "tailwindcss/defaultTheme"
+import plugin from "tailwindcss/plugin"
+import animatePlugin from "tailwindcss-animate"
 
 const config = {
   darkMode: ["class"],
@@ -72,6 +75,9 @@ const config = {
         sm: "calc(var(--radius) - 4px)",
         "3xl": "1.5rem",
       },
+      fontFamily: {
+        sans: ["var(--font-sans)", ...fontFamily.sans],
+      },
       keyframes: {
         "accordion-down": {
           from: { height: "0" },
@@ -88,7 +94,7 @@ const config = {
       },
     },
   },
-  plugins: [require("tailwindcss-animate")],
+  plugins: [animatePlugin],
 } satisfies Config
 
 export default config

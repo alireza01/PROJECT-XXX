@@ -11,6 +11,7 @@ interface WordPosition {
   start: number
   end: number
   explanationId: string
+  word?: string
 }
 
 interface HighlightedTextProps {

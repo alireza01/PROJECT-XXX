@@ -27,7 +27,7 @@ export function useTranslation(
     const translateText = async () => {
       try {
         setIsLoading(true);
-        const result = await getTranslation(text, targetLanguage, sourceLanguage);
+        const result = await getTranslation(text, targetLanguage || 'en');
         setTranslatedText(result.text);
         setError(null);
       } catch (err) {
@@ -48,7 +48,7 @@ export function useTranslation(
       const textToTranslate = newText || text;
       try {
         setIsLoading(true);
-        const result = await getTranslation(textToTranslate, targetLanguage, sourceLanguage);
+        const result = await getTranslation(textToTranslate, targetLanguage || 'en');
         setTranslatedText(result.text);
         setError(null);
         return result.text;

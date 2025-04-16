@@ -66,7 +66,7 @@ export function WordExplanationModal({ word, onClose, isOpen }: WordExplanationM
             exit={{ scale: 0.95, opacity: 0 }}
             transition={{ type: "spring", duration: 0.3 }}
             className="bg-white dark:bg-gray-900 rounded-lg p-6 max-w-md w-full mx-4 shadow-xl"
-            onClick={e => e.stopPropagation()}
+            onClick={(e: React.MouseEvent) => e.stopPropagation()}
             onKeyDown={handleKeyDown}
             role="dialog"
             aria-modal="true"

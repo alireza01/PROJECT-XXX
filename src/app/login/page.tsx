@@ -1,7 +1,10 @@
+'use client';
+
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { useSupabaseAuth } from '@/components/providers/supabase-auth-provider'
-import { redirect } from 'next/navigation'
+import { useSupabaseAuth } from '@/hooks/use-supabase-auth'
+import { useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 
 export default function LoginPage({
   searchParams,
@@ -9,11 +12,14 @@ export default function LoginPage({
   searchParams: { redirectTo?: string }
 }) {
   const { signInWithGoogle, user } = useSupabaseAuth()
+  const router = useRouter()
 
   // If user is already logged in, redirect to home or the requested page
-  if (user) {
-    redirect(searchParams.redirectTo || '/')
-  }
+  useEffect(() => {
+    if (user) {
+      router.push(searchParams.redirectTo || '/')
+    }
+  }, [user, router, searchParams.redirectTo])
 
   return (
     <div className="container flex h-screen w-screen flex-col items-center justify-center">

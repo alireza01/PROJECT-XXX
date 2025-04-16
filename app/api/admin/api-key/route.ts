@@ -45,6 +45,7 @@ export async function POST(request: Request) {
       data: {
         key: apiKey,
         isActive: true,
+        userId: session.user.id,
       },
     });
 

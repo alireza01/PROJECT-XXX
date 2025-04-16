@@ -32,7 +32,7 @@ export class TranslationService {
   private readonly MAX_RETRIES = 3;
 
   private constructor() {
-    // @ts-ignore - We know this is safe because ApiKeyManager is a singleton
+    // @ts-expect-error - ApiKeyManager is a singleton with getInstance method
     this.apiKeyManager = ApiKeyManager.getInstance();
   }
 

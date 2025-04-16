@@ -63,10 +63,12 @@ export function ReadingProgress({ book, userId }: ReadingProgressProps) {
   const handleStartReading = async () => {
     try {
       const session = await startReadingSession(userId, book.id);
-      setSessionId(session.id);
-      setStartTime(new Date());
-      setIsReading(true);
-      setDuration(0);
+      if (session) {
+        setSessionId(session.id);
+        setStartTime(new Date());
+        setIsReading(true);
+        setDuration(0);
+      }
     } catch (error) {
       console.error('Error starting reading session:', error);
     }

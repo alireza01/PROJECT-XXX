@@ -109,7 +109,6 @@ export function BookReader({
   const [readingProgress, setReadingProgress] = useState(0)
 
   // Refs
-  const readerRef = useRef<HTMLDivElement>(null)
   const router = useRouter()
 
   // Keyboard Navigation
@@ -249,7 +248,6 @@ export function BookReader({
   return (
     <div className="relative min-h-screen bg-background">
       <div
-        ref={readerRef}
         {...swipeHandlers}
         className={cn(
           "max-w-4xl mx-auto px-4 py-8",

@@ -1,11 +1,12 @@
 import * as Sentry from '@sentry/nextjs';
 import { supabase } from './supabase';
+import { PostgrestError } from '@supabase/supabase-js';
 
 // Error types
 export interface ErrorContext {
   service?: string;
   operation?: string;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 export type ErrorSeverity = 'error' | 'warning' | 'info';
@@ -38,14 +39,31 @@ export const initErrorTracking = () => {
 
 // Base logger
 const logger = {
-  info: (message: string, meta?: any) => {
-    console.log(`[INFO] ${message}`, meta);
+  info: (message: string, meta?: Record<string, unknown>) => {
+    if (process.env.NODE_ENV !== 'production') {
+      Sentry.addBreadcrumb({
+        category: 'info',
+        message,
+        data: meta,
+        level: 'info',
+      });
+    }
   },
-  error: (message: string, meta?: any) => {
-    console.error(`[ERROR] ${message}`, meta);
+  error: (message: string, meta?: Record<string, unknown>) => {
+    Sentry.addBreadcrumb({
+      category: 'error',
+      message,
+      data: meta,
+      level: 'error',
+    });
   },
-  warn: (message: string, meta?: any) => {
-    console.warn(`[WARN] ${message}`, meta);
+  warn: (message: string, meta?: Record<string, unknown>) => {
+    Sentry.addBreadcrumb({
+      category: 'warning',
+      message,
+      data: meta,
+      level: 'warning',
+    });
   },
 };
 
@@ -65,7 +83,7 @@ export const createError = (
 };
 
 // Handle Supabase errors
-export const handleSupabaseError = (error: any, context?: ErrorContext): never => {
+export const handleSupabaseError = (error: PostgrestError | Error, context?: ErrorContext): never => {
   const appError = createError(
     error.message || 'An error occurred while accessing the database',
     { ...context, supabaseError: error },
@@ -76,7 +94,7 @@ export const handleSupabaseError = (error: any, context?: ErrorContext): never =
 };
 
 // Handle Supabase responses
-export const handleSupabaseResponse = <T>(response: { data: T | null; error: any }, context?: ErrorContext): T => {
+export const handleSupabaseResponse = <T>(response: { data: T | null; error: PostgrestError | null }, context?: ErrorContext): T => {
   if (response.error) {
     handleSupabaseError(response.error, context);
   }
@@ -85,7 +103,7 @@ export const handleSupabaseResponse = <T>(response: { data: T | null; error: any
     handleSupabaseError(new Error('No data returned from Supabase'), context);
   }
   
-  return response.data;
+  return response.data as T;
 };
 
 // Consolidated trackError function
@@ -112,7 +130,7 @@ export const trackError = (error: Error | AppError, context?: ErrorContext) => {
       },
     });
 
-    // Log to console
+    // Log error
     logger.error(error.message, { ...appError.context, ...context });
 
     // Save to database if it's a critical error
@@ -141,7 +159,7 @@ export const trackPerformance = (
     // Track in Sentry
     Sentry.metrics.increment(name, value, tags);
 
-    // Log to console
+    // Log performance metric
     logger.info(`Performance metric: ${name}`, { value, tags, context });
 
     // Save to database
@@ -223,7 +241,12 @@ const savePerformanceMetric = async (
 };
 
 // Error handling middleware
-export const errorHandler = (err: AppError, req: any, res: any, next: any) => {
+export const errorHandler = (
+  err: AppError,
+  req: { path: string; method: string; query: unknown; body: unknown },
+  res: { status: (code: number) => { json: (data: unknown) => void } },
+  next: () => void
+) => {
   trackError(err, {
     path: req.path,
     method: req.method,

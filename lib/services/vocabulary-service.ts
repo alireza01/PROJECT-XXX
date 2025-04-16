@@ -43,12 +43,12 @@ export class VocabularyService {
     return VocabularyService.instance;
   }
 
-  private async fetchVocabulary(pageId: string, userLevel: VocabularyLevel) {
+  private async fetchVocabulary(pageId: string, userLevel: VocabularyLevel): Promise<Vocabulary[]> {
     const now = Date.now();
     const cacheKey = `${pageId}-${userLevel}`;
     
     if (now - this.lastFetch < this.CACHE_DURATION && this.cache.has(cacheKey)) {
-      return this.cache.get(cacheKey);
+      return this.cache.get(cacheKey) || [];
     }
 
     try {
@@ -60,9 +60,10 @@ export class VocabularyService {
 
       if (error) throw error;
 
-      this.cache.set(cacheKey, words);
+      const vocabularyList = words || [];
+      this.cache.set(cacheKey, vocabularyList);
       this.lastFetch = now;
-      return words;
+      return vocabularyList;
     } catch (error) {
       trackError(error as Error, {
         service: 'VocabularyService',
