@@ -248,10 +248,10 @@ export function BookReader({
         
         // Transform the words into the format expected by HighlightedText
         const transformedWords = words.map((word): WordPosition => ({
-          id: word.id || '',
+          id: word.word || '',
+          explanationId: word.word || '',
           start: word.start || 0,
           end: word.end || 0,
-          explanationId: word.id || '',
           word: word.word || ''
         }));
         setWordPositions(transformedWords);
