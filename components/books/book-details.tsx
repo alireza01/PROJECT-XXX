@@ -1,36 +1,103 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { motion } from "framer-motion"
+import { Star, Share2, Bookmark, Heart, Award, Clock, BookText } from "lucide-react"
 import Image from "next/image"
 import Link from "next/link"
-import { motion } from "framer-motion"
-import { Button } from "@/components/ui/button"
+import { useRouter } from 'next/navigation'
+import { useState, useEffect } from "react"
+
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { BookOpen, Star, Share2, Bookmark, Heart, Award, Clock, BookText, Users } from "lucide-react"
+import { useSupabaseAuth } from "@/hooks/use-supabase-auth"
 import { supabase } from "@/lib/supabase/client"
 import { formatPrice } from "@/lib/utils"
-import { useAuth } from "@/v2/hooks/use-auth"
+
+
+interface ReviewData {
+  id: string
+  rating: number
+  comment: string
+  created_at: string
+  user: {
+    email: string
+  }
+  user_id: string
+  book_id: string
+}
+
+interface BookData {
+  id: string
+  title: string
+  slug: string
+  description: string
+  cover_image: string | null
+  page_count: number
+  level: string
+  publish_date: string
+  language: string
+  price: number
+  discount_percentage: number | null
+  has_free_trial: boolean
+  free_pages: number
+  read_time: number
+  author: Array<{
+    id: string
+    name: string
+  }>
+  category: Array<{
+    id: string
+    name: string
+  }>
+}
+
+interface BookDetails {
+  id: string
+  title: string
+  author: {
+    id: string
+    name: string
+  }
+  description: string
+  cover_image: string | null
+  page_count: number
+  level: string
+  publish_date: string
+  language: string
+  price: number
+  discount_percentage: number | null
+  has_free_trial: boolean
+  free_pages: number
+  read_time: number
+  category: {
+    id: string
+    name: string
+  }
+  tags: string[]
+  rating: number
+  reviewCount: number
+  is_liked: boolean
+  is_bookmarked: boolean
+}
 
 interface BookDetailsProps {
   id: string
 }
 
 export function BookDetails({ id }: BookDetailsProps) {
+  const router = useRouter()
   const [isBookmarked, setIsBookmarked] = useState(false)
   const [isLiked, setIsLiked] = useState(false)
-  const [book, setBook] = useState<any>(null)
-  const [reviews, setReviews] = useState<any[]>([])
+  const [book, setBook] = useState<BookDetails | null>(null)
+  const [reviews, setReviews] = useState<ReviewData[]>([])
   const [isLoading, setIsLoading] = useState(true)
-  const { user } = useAuth()
+  const { user } = useSupabaseAuth()
 
   useEffect(() => {
     const fetchBookDetails = async () => {
       setIsLoading(true)
       try {
-        // Use the exported supabase instance from lib/supabase/client.ts
-        // const supabase = createClient() // No need to create a new client
-
         // Fetch book details
         const { data: bookData, error: bookError } = await supabase
           .from("books")
@@ -65,7 +132,9 @@ export function BookDetails({ id }: BookDetailsProps) {
             rating,
             comment,
             created_at,
-            user:user_id(email)
+            user:user_id(email),
+            user_id,
+            book_id
           `)
           .eq("book_id", bookData?.id)
           .order("created_at", { ascending: false })
@@ -106,20 +175,56 @@ export function BookDetails({ id }: BookDetailsProps) {
         }
 
         // Calculate average rating
-        const avgRating =
-          reviewsData.length > 0
-            ? reviewsData.reduce((sum: number, review: any) => sum + (review.rating || 0), 0) / reviewsData.length
-            : 0
+        const avgRating = reviewsData?.length ?? 0 > 0
+          ? reviewsData.reduce((sum, review) => sum + (review.rating ?? 0), 0) / reviewsData.length
+          : 0
 
         // Format the book data
-        setBook({
-          ...bookData,
-          tags: tagsData?.map((tag: any) => tag.tag.name) || [],
+        const formattedBook: BookDetails = {
+          id: bookData.id,
+          title: bookData.title,
+          author: {
+            id: bookData.author[0]?.id ?? "",
+            name: bookData.author[0]?.name ?? ""
+          },
+          description: bookData.description,
+          cover_image: bookData.cover_image,
+          page_count: bookData.page_count,
+          level: bookData.level,
+          publish_date: bookData.publish_date,
+          language: bookData.language,
+          price: bookData.price,
+          discount_percentage: bookData.discount_percentage ?? null,
+          has_free_trial: bookData.has_free_trial,
+          free_pages: bookData.free_pages,
+          read_time: bookData.read_time,
+          category: {
+            id: bookData.category[0]?.id ?? "",
+            name: bookData.category[0]?.name ?? ""
+          },
+          tags: tagsData?.map(tag => tag.tag.name) ?? [],
           rating: avgRating,
-          reviewCount: reviewsData.length,
-        })
+          reviewCount: reviewsData?.length ?? 0,
+          is_liked: false,
+          is_bookmarked: false
+        }
 
-        setReviews(reviewsData)
+        setBook(formattedBook)
+
+        // Format the reviews data
+        const formattedReviews: ReviewData[] = (reviewsData ?? []).map(review => ({
+          id: review.id,
+          user_id: review.user_id,
+          book_id: review.book_id,
+          rating: review.rating,
+          comment: review.comment,
+          created_at: review.created_at,
+          user: {
+            email: review.user?.email ?? ""
+          }
+        }))
+
+        setReviews(formattedReviews)
       } catch (error) {
         console.error("Error fetching book details:", error)
       } finally {
@@ -131,18 +236,16 @@ export function BookDetails({ id }: BookDetailsProps) {
   }, [id, user])
 
   const handleBookmark = async () => {
-    if (!user?.id) return
+    if (!user?.id || !book?.id) return
 
     try {
-      // const supabase = createClient()
-
       if (isBookmarked) {
         // Remove bookmark
-        await supabase.from("user_bookmarks").delete().eq("book_id", book?.id).eq("user_id", user.id)
+        await supabase.from("user_bookmarks").delete().eq("book_id", book.id).eq("user_id", user.id)
       } else {
         // Add bookmark
         await supabase.from("user_bookmarks").insert({
-          book_id: book?.id,
+          book_id: book.id,
           user_id: user.id,
         })
       }
@@ -154,18 +257,16 @@ export function BookDetails({ id }: BookDetailsProps) {
   }
 
   const handleLike = async () => {
-    if (!user?.id) return
+    if (!user?.id || !book?.id) return
 
     try {
-      // const supabase = createClient()
-
       if (isLiked) {
         // Remove like
-        await supabase.from("user_likes").delete().eq("book_id", book?.id).eq("user_id", user.id)
+        await supabase.from("user_likes").delete().eq("book_id", book.id).eq("user_id", user.id)
       } else {
         // Add like
         await supabase.from("user_likes").insert({
-          book_id: book?.id,
+          book_id: book.id,
           user_id: user.id,
         })
       }
@@ -175,6 +276,17 @@ export function BookDetails({ id }: BookDetailsProps) {
       console.error("Error toggling like:", error)
     }
   }
+
+  if (isLoading) {
+    return <div>Loading...</div>
+  }
+
+  if (!book) {
+    return <div>Book not found</div>
+  }
+
+  const discountPercentage = book.discount_percentage ?? 0
+  const discountedPrice = book.price * (1 - discountPercentage / 100)
 
   return (
     <section className="py-12 px-4 bg-gradient-to-b from-gold-100 to-gold-50 dark:from-gray-800 dark:to-gray-900">
