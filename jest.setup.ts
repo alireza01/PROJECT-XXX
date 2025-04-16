@@ -1,4 +1,5 @@
 import '@testing-library/jest-dom';
+import { jest } from '@jest/globals';
 
 // Mock environment variables
 process.env.NEXT_PUBLIC_SENTRY_DSN = 'test-sentry-dsn';
