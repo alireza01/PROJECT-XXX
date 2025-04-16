@@ -37,10 +37,16 @@ export const bookCategories = [
   "Technology",
   "History",
   "Biography",
+  "Poetry",
+  "Drama",
+  "Mystery",
+  "Romance",
+  "Fantasy",
+  "Science Fiction",
   "Self-Help",
   "Business",
-  "Art",
-  "Poetry",
+  "Education",
+  "Other"
 ] as const
 
 export type BookCategory = typeof bookCategories[number]
