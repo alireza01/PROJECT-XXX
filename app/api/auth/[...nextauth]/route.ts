@@ -4,7 +4,7 @@ import { compare } from 'bcryptjs'
 import { getUserByEmail } from '@/lib/supabase'
 import { JWT } from 'next-auth/jwt'
 
-const authOptions: AuthOptions = {
+export const authOptions: AuthOptions = {
   providers: [
     CredentialsProvider({
       name: 'Credentials',
